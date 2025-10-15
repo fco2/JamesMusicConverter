@@ -81,8 +81,10 @@ The app uses a custom **NavDisplay** navigation system (not Jetpack Navigation):
 ### Key Dependencies
 - **Compose BOM** (2025.08.00): Manages all Compose library versions
 - **Kotlin Serialization**: Type-safe navigation with serializable routes
-- **Coil**: Image loading (for future thumbnail support)
-- **OkHttp**: HTTP client for network requests
+- **youtubedl-android** (v0.18.+): yt-dlp integration for YouTube and 1000+ platforms
+- **youtubedl-android-ffmpeg** (v0.18.+): FFmpeg for audio conversion to MP3
+- **Coil**: Image loading
+- **OkHttp**: HTTP client for direct URL downloads
 - **Material Icons Extended**: Additional Material Design icons
 
 ### Dependencies Management
@@ -105,8 +107,11 @@ Dependencies are managed using Gradle version catalogs in `gradle/libs.versions.
 ### Permissions
 The app requires these permissions (defined in AndroidManifest.xml):
 - `INTERNET`: For fetching video data
-- `WRITE_EXTERNAL_STORAGE`: For devices API 28 and below
-- `READ_MEDIA_AUDIO`: For accessing converted audio files
+- `ACCESS_NETWORK_STATE`: Check network connectivity
+- `POST_NOTIFICATIONS`: Show completion notifications (Android 13+)
+- `READ_MEDIA_AUDIO`: For accessing converted audio files (Android 13+)
+- `WRITE_EXTERNAL_STORAGE`: For devices API 28 and below (maxSdkVersion="32")
+- `READ_EXTERNAL_STORAGE`: For devices API 29-32 (maxSdkVersion="32")
 
 ### Testing Setup
 - Unit tests: JUnit 4.13.2
@@ -115,16 +120,114 @@ The app requires these permissions (defined in AndroidManifest.xml):
 
 ## Implementation Notes
 
-### Current Conversion Logic
-The conversion progress is currently **simulated** in `ConversionProgressScreen.kt`. In a real implementation, you would:
-1. Integrate a library like `yt-dlp` or use a backend service
-2. Handle actual video download and audio extraction
-3. Implement proper file storage using Android's storage APIs
-4. Handle runtime permissions for storage access
+### Current Implementation - FULLY FUNCTIONAL ✅
 
-### Future Enhancements
-- Implement actual video-to-MP3 conversion using external libraries
-- Add ViewModel layer for business logic separation
-- Implement proper error handling for different error types
-- Add file management and history features
-- Support for batch conversions
+The app is **production-ready** with real YouTube/platform video downloading and MP3 conversion:
+
+#### What's Implemented:
+1. **yt-dlp Integration** (`YtDlpDownloader.kt`)
+   - Uses `youtubedl-android` library (v0.18.+) with bundled Python runtime
+   - Supports YouTube and 1000+ platforms (Vimeo, TikTok, Instagram, Twitter/X, etc.)
+   - Downloads audio with `-x --audio-format mp3 --audio-quality 0` flags
+   - Automatic filename using video title template `%(title)s.%(ext)s`
+   - First-time initialization (5-10 seconds) - subsequent calls are fast
+
+2. **FFmpeg Audio Conversion** (bundled in youtubedl-android-ffmpeg)
+   - Converts downloaded audio to 320kbps MP3
+   - Handles all audio formats (Opus, Vorbis, M4A, AAC, etc.)
+   - Progress tracking integrated with yt-dlp callback
+
+3. **Smart Download Routing** (`VideoDownloader.kt`)
+   - Auto-detects platform URLs (YouTube, Vimeo, etc.) → uses yt-dlp
+   - Direct video URLs (.mp4, .webm) → uses OkHttp for faster download
+   - Fallback error handling for unsupported platforms
+
+4. **Notification System** (`DownloadNotificationService.kt`)
+   - Shows notification when conversion completes
+   - Tap notification to play MP3 in default music player
+   - Uses FileProvider for secure file URI access
+   - Auto-cancels on tap
+
+5. **File Management** (`ConversionCompletedViewModel.kt`)
+   - Play MP3 with built-in music player integration
+   - Share files with other apps (WhatsApp, Telegram, etc.)
+   - Open file location (shows toast if file manager not available)
+   - Files saved with actual video title as filename
+
+6. **Progress Tracking** (`ConversionRepository.kt`)
+   - Download phase: 0-80% (yt-dlp reports download progress)
+   - Conversion phase: 80-100% (FFmpeg audio extraction)
+   - Progress normalized with `.coerceAtLeast(0f)` to prevent negatives
+   - Real-time status messages throughout
+
+7. **UI Enhancements** (`MainActivity.kt`)
+   - White status bar icons (works on light/dark themes)
+   - `isAppearanceLightStatusBars = false` for white icons
+   - Transparent status bar with edge-to-edge display
+
+#### Architecture Pattern:
+```
+UI Layer (Compose Screens + ViewModels)
+    ↓
+Repository Layer (ConversionRepository)
+    ↓
+Data Layer (VideoDownloader → YtDlpDownloader → FFmpeg)
+    ↓
+File System + Notifications
+```
+
+#### Key Files:
+- `YtDlpDownloader.kt` - Main downloader with FFmpeg integration (407 lines)
+- `VideoDownloader.kt` - Smart URL routing logic (221 lines)
+- `ConversionRepository.kt` - Orchestrates conversion flow with progress (116 lines)
+- `DownloadNotificationService.kt` - Handles completion notifications (124 lines)
+- `ConversionCompletedViewModel.kt` - Play/share/open file actions
+- `MainActivity.kt` - Status bar configuration (white icons)
+- `AudioExtractor.kt` - Audio file management (preserves original filename)
+
+#### File Output:
+- **Format**: MP3 (320kbps, best quality)
+- **Location**: `Android/data/com.chuka.jamesmusicconverter/files/Download/JamesMusicConverter/`
+- **Filename**: Actual video title (e.g., "Best Song Ever.mp3" not "converted_12345.mp3")
+
+### Testing
+Run the app and test with any YouTube URL:
+```
+https://www.youtube.com/watch?v=dQw4w9WgXcQ
+```
+
+Expected flow:
+1. Enter URL → "Start Conversion"
+2. Progress: "Initializing yt-dlp..." → "Fetching video information..." → "Downloading audio... X%" → "Audio ready"
+3. Notification appears: "Download Complete - {filename}.mp3"
+4. Completion screen shows: file name, size, with Play/Share/Open buttons
+
+### Known Issues & Workarounds
+
+1. **Emulator Storage Issues**
+   - Problem: `INSTALL_FAILED_INSUFFICIENT_STORAGE`
+   - Solution: Always use `./gradlew uninstallDebug && ./gradlew installDebug`
+
+2. **First Launch Slow**
+   - Problem: First yt-dlp initialization takes 5-10 seconds
+   - Reason: Extracting Python runtime and yt-dlp scripts
+   - Solution: Normal behavior, subsequent downloads are fast
+
+3. **Architecture Compatibility**
+   - Problem: Some devices may not support yt-dlp (ARM vs x86)
+   - Solution: App checks `ytDlpDownloader.isAvailable()` and shows helpful error
+   - Fallback: User can still use direct video URLs (OkHttp path)
+
+4. **Deprecated APIs** (warnings only, not errors)
+   - `window.statusBarColor` - Still works, just deprecated
+   - `Divider` → use `HorizontalDivider` in future
+   - `Icons.Filled.ArrowBack` → use `Icons.AutoMirrored.Filled.ArrowBack`
+   - `LocalClipboardManager` → use `LocalClipboard` in future
+
+### Future Enhancement Ideas
+- Add download history with SQLite/Room
+- Support for batch/queue conversions
+- Custom output quality selection (128/192/320 kbps)
+- Playlist support
+- Dark theme toggle
+- Progress notification (not just completion)
