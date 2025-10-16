@@ -14,7 +14,12 @@ import java.io.File
  * Repository for handling video-to-MP3 conversion operations
  */
 interface ConversionRepository {
-    fun convertVideoToMp3(videoUrl: String): Flow<ConversionProgress>
+    fun convertVideoToMp3(
+        videoUrl: String,
+        username: String? = null,
+        password: String? = null,
+        cookiesFromBrowser: String? = null
+    ): Flow<ConversionProgress>
     suspend fun getConversionResult(videoUrl: String): Result<ConversionResult>
 }
 
@@ -30,12 +35,22 @@ class ConversionRepositoryImpl(
     /**
      * Converts video to MP3 by downloading and extracting audio
      */
-    override fun convertVideoToMp3(videoUrl: String): Flow<ConversionProgress> = flow {
+    override fun convertVideoToMp3(
+        videoUrl: String,
+        username: String?,
+        password: String?,
+        cookiesFromBrowser: String?
+    ): Flow<ConversionProgress> = flow {
         try {
             var downloadedFilePath: String? = null
 
             // Step 1: Download the video (0% - 80%)
-            videoDownloader.downloadVideo(videoUrl).collect { downloadProgress ->
+            videoDownloader.downloadVideo(
+                url = videoUrl,
+                username = username,
+                password = password,
+                cookiesFromBrowser = cookiesFromBrowser
+            ).collect { downloadProgress ->
                 // Ensure progress is never negative
                 val normalizedProgress = downloadProgress.progress.coerceAtLeast(0f)
                 emit(ConversionProgress(

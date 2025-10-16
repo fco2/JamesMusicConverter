@@ -18,8 +18,13 @@ fun MusicConverterNavGraph() {
         when (destination) {
             is UrlInputRoute -> {
                 UrlInputScreen(
-                    onNavigateToProgress = { videoUrl ->
-                        backStack.navigate(ConversionProgressRoute(videoUrl))
+                    onNavigateToProgress = { videoUrl, username, password, browser ->
+                        backStack.navigate(ConversionProgressRoute(
+                            videoUrl = videoUrl,
+                            username = username,
+                            password = password,
+                            cookiesFromBrowser = browser
+                        ))
                     }
                 )
             }
@@ -27,6 +32,9 @@ fun MusicConverterNavGraph() {
             is ConversionProgressRoute -> {
                 ConversionProgressScreen(
                     videoUrl = destination.videoUrl,
+                    username = destination.username,
+                    password = destination.password,
+                    cookiesFromBrowser = destination.cookiesFromBrowser,
                     onNavigateToCompleted = { videoTitle, thumbnailUrl, fileName, fileSize, filePath ->
                         // Replace current screen with completed screen
                         backStack.replace(
@@ -63,10 +71,12 @@ fun MusicConverterNavGraph() {
                 ConversionErrorScreen(
                     errorMessage = destination.errorMessage,
                     onNavigateBack = {
+                        // Clear entire stack and return to input screen
                         backStack.clearAndNavigate(UrlInputRoute)
                     },
                     onRetry = {
-                        backStack.navigateUp()
+                        // Go back to input screen to try a different URL
+                        backStack.clearAndNavigate(UrlInputRoute)
                     }
                 )
             }

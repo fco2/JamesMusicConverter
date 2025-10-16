@@ -19,7 +19,10 @@ object UrlInputRoute : NavKey
  */
 @Serializable
 data class ConversionProgressRoute(
-    val videoUrl: String
+    val videoUrl: String,
+    val username: String? = null,
+    val password: String? = null,
+    val cookiesFromBrowser: String? = null
 ) : NavKey
 
 /**

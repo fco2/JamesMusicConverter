@@ -27,14 +27,34 @@ class ConversionProgressViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<ConversionUiState>(ConversionUiState.Idle)
     val uiState: StateFlow<ConversionUiState> = _uiState.asStateFlow()
 
+    private var currentConversionUrl: String? = null
+
     /**
      * Starts the conversion process for the given video URL
      */
-    fun startConversion(videoUrl: String) {
+    fun startConversion(
+        videoUrl: String,
+        username: String? = null,
+        password: String? = null,
+        cookiesFromBrowser: String? = null
+    ) {
+        // Prevent re-triggering conversion for the same URL if already converting
+        if (currentConversionUrl == videoUrl &&
+            _uiState.value is ConversionUiState.Converting) {
+            return
+        }
+
+        currentConversionUrl = videoUrl
+
         viewModelScope.launch {
             try {
                 // Collect progress updates
-                repository.convertVideoToMp3(videoUrl).collect { progress ->
+                repository.convertVideoToMp3(
+                    videoUrl = videoUrl,
+                    username = username,
+                    password = password,
+                    cookiesFromBrowser = cookiesFromBrowser
+                ).collect { progress ->
                     _uiState.value = ConversionUiState.Converting(progress)
                 }
 
@@ -56,5 +76,13 @@ class ConversionProgressViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    /**
+     * Resets the ViewModel state for a fresh conversion
+     */
+    fun reset() {
+        currentConversionUrl = null
+        _uiState.value = ConversionUiState.Idle
     }
 }

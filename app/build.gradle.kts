@@ -77,6 +77,7 @@ dependencies {
 
     // Serialization for type-safe navigation
     implementation(libs.kotlinx.serialization.core)
+    implementation(libs.kotlinx.serialization.json)
 
     // ViewModel integration
     implementation(libs.androidx.lifecycle.viewmodel.compose)

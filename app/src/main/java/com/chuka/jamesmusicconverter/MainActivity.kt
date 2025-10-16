@@ -15,7 +15,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import com.chuka.jamesmusicconverter.navigation.MusicConverterNavGraph
 import com.chuka.jamesmusicconverter.ui.theme.JamesMusicConverterTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -94,8 +93,7 @@ class MainActivity : ComponentActivity() {
         }
 
         // For Android 10-12 (API 29-32), request READ_EXTERNAL_STORAGE
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(
                     this,
                     Manifest.permission.READ_EXTERNAL_STORAGE

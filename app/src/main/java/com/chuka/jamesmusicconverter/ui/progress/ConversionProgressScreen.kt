@@ -21,6 +21,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun ConversionProgressScreen(
     videoUrl: String,
+    username: String? = null,
+    password: String? = null,
+    cookiesFromBrowser: String? = null,
     onNavigateToCompleted: (String, String?, String, Long, String) -> Unit,
     onNavigateToError: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -28,12 +31,18 @@ fun ConversionProgressScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // Start conversion when screen is first displayed
+    // Reset and start conversion when screen is first displayed
     LaunchedEffect(videoUrl) {
-        viewModel.startConversion(videoUrl)
+        viewModel.reset() // Clear any previous state
+        viewModel.startConversion(
+            videoUrl = videoUrl,
+            username = username,
+            password = password,
+            cookiesFromBrowser = cookiesFromBrowser
+        )
     }
 
-    // Handle state changes
+    // Handle state changes - only navigate on Success or Error after conversion starts
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is ConversionUiState.Success -> {

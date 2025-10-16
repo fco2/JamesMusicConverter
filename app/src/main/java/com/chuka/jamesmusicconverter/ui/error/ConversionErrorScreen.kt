@@ -147,9 +147,11 @@ fun ConversionErrorScreen(
                 )
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Back to Home Button
             OutlinedButton(
-                onClick = onNavigateBack,
+                onClick = onRetry,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)

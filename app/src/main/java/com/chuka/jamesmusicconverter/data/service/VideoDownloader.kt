@@ -32,8 +32,18 @@ class VideoDownloader(private val context: Context) {
      * Downloads a video from the given URL with progress updates
      * Automatically detects if yt-dlp is needed (YouTube, Vimeo, etc.)
      * or if it's a direct video URL
+     *
+     * @param url The video URL to download
+     * @param username Optional username for authentication (for sites like Vimeo)
+     * @param password Optional password for authentication
+     * @param cookiesFromBrowser Optional browser to extract cookies from (e.g., "chrome", "firefox")
      */
-    fun downloadVideo(url: String): Flow<DownloadProgress> = flow {
+    fun downloadVideo(
+        url: String,
+        username: String? = null,
+        password: String? = null,
+        cookiesFromBrowser: String? = null
+    ): Flow<DownloadProgress> = flow {
         emit(DownloadProgress(0f, "Preparing download..."))
 
         try {
@@ -54,7 +64,12 @@ class VideoDownloader(private val context: Context) {
                 if (ytDlpAvailable) {
                     Log.d("VideoDownloader", "Using yt-dlp for: $url")
                     // Use downloadAudioOnly which converts to MP3 using ffmpeg
-                    ytDlpDownloader.downloadAudioOnly(url).collect { progress ->
+                    ytDlpDownloader.downloadAudioOnly(
+                        url = url,
+                        username = username,
+                        password = password,
+                        cookiesFromBrowser = cookiesFromBrowser
+                    ).collect { progress ->
                         emit(progress)
                     }
                     return@flow

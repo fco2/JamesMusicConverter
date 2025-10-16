@@ -145,12 +145,14 @@ class YtDlpDownloader(private val context: Context) {
             // Create download request
             val request = YoutubeDLRequest(url)
             request.addOption("-o", outputTemplate)
-            // Simple format selection - just get best audio
+            // Flexible format selection - try best audio, fallback to best overall
             // yt-dlp will automatically choose the best available format
-            request.addOption("-f", "bestaudio")
+            request.addOption("-f", "bestaudio/best")
             request.addOption("--no-playlist")
             // Add socket timeout to handle network issues
             request.addOption("--socket-timeout", "30")
+            // Add retries for network issues
+            request.addOption("--retries", "3")
 
             Log.d(TAG, "Starting download for: $url")
             Log.d(TAG, "Output template: $outputTemplate")
@@ -203,10 +205,19 @@ class YtDlpDownloader(private val context: Context) {
     /**
      * Download audio only (faster, smaller file)
      * Extracts best quality audio from the video and converts to MP3
+     *
+     * @param url The video URL to download
+     * @param outputFileName Optional custom filename (without extension)
+     * @param username Optional username for authentication
+     * @param password Optional password for authentication
+     * @param cookiesFromBrowser Optional browser to extract cookies from (e.g., "chrome", "firefox", "edge")
      */
     fun downloadAudioOnly(
         url: String,
-        outputFileName: String? = null
+        outputFileName: String? = null,
+        username: String? = null,
+        password: String? = null,
+        cookiesFromBrowser: String? = null
     ): Flow<DownloadProgress> = callbackFlow {
         trySend(DownloadProgress(0f, "Initializing yt-dlp..."))
 
@@ -250,6 +261,23 @@ class YtDlpDownloader(private val context: Context) {
             request.addOption("--audio-quality", "0")  // Best quality (320kbps for MP3)
             request.addOption("--no-playlist")
             request.addOption("--socket-timeout", "30")
+            // Add retries for network issues
+            request.addOption("--retries", "3")
+            // Try to avoid geo-blocking issues
+            request.addOption("--geo-bypass")
+
+            // Add authentication if provided
+            if (!username.isNullOrBlank() && !password.isNullOrBlank()) {
+                Log.d(TAG, "Adding username/password authentication")
+                request.addOption("--username", username)
+                request.addOption("--password", password)
+            }
+
+            // Add cookies from browser if specified
+            if (!cookiesFromBrowser.isNullOrBlank()) {
+                Log.d(TAG, "Extracting cookies from browser: $cookiesFromBrowser")
+                request.addOption("--cookies-from-browser", cookiesFromBrowser)
+            }
 
             Log.d(TAG, "Starting audio-only download for: $url")
 

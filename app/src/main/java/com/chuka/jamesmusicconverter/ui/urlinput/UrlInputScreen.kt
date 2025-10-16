@@ -5,12 +5,17 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +26,8 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
@@ -31,7 +38,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UrlInputScreen(
-    onNavigateToProgress: (String) -> Unit,
+    onNavigateToProgress: (String, String?, String?, String?) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: UrlInputViewModel = hiltViewModel()
 ) {
@@ -39,6 +46,14 @@ fun UrlInputScreen(
     var isError by remember { mutableStateOf(false) }
     var showPermissionDialog by remember { mutableStateOf(false) }
     var pendingUrl by remember { mutableStateOf<String?>(null) }
+
+    // Authentication fields
+    var showAdvancedOptions by remember { mutableStateOf(false) }
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var selectedBrowser by remember { mutableStateOf("") }
+    var useBrowserCookies by remember { mutableStateOf(false) }
 
     val clipboardManager = LocalClipboardManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -52,7 +67,10 @@ fun UrlInputScreen(
         if (allGranted) {
             // Permissions granted, proceed with conversion
             pendingUrl?.let { url ->
-                onNavigateToProgress(url)
+                val user = if (username.isNotBlank()) username else null
+                val pass = if (password.isNotBlank()) password else null
+                val browser = if (useBrowserCookies && selectedBrowser.isNotBlank()) selectedBrowser else null
+                onNavigateToProgress(url, user, pass, browser)
                 pendingUrl = null
             }
         } else {
@@ -62,14 +80,14 @@ fun UrlInputScreen(
     }
 
     // Function to check and request permissions
-    fun checkAndRequestPermissions(url: String) {
+    fun checkAndRequestPermissions(url: String, username: String?, password: String?, browser: String?) {
         val permissionsToRequest = mutableListOf<String>()
 
         // For Android 13+ (API 33+), need INTERNET only (INTERNET is not runtime permission)
         // For Android 10-12 (API 29-32), need READ_EXTERNAL_STORAGE
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // Android 13+: We're using app-specific directories, no permissions needed
-            onNavigateToProgress(url)
+            onNavigateToProgress(url, username, password, browser)
             return
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // Android 10-12: Check READ_EXTERNAL_STORAGE
@@ -84,7 +102,7 @@ fun UrlInputScreen(
 
         if (permissionsToRequest.isEmpty()) {
             // All permissions already granted
-            onNavigateToProgress(url)
+            onNavigateToProgress(url, username, password, browser)
         } else {
             // Request permissions
             pendingUrl = url
@@ -206,6 +224,117 @@ fun UrlInputScreen(
                 singleLine = true
             )
 
+            // Advanced Options
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showAdvancedOptions = !showAdvancedOptions },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Advanced Options (for Vimeo, etc.)",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Icon(
+                            imageVector = if (showAdvancedOptions) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (showAdvancedOptions) "Collapse" else "Expand",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (showAdvancedOptions) {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "For password-protected or login-required videos:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Username field
+                        OutlinedTextField(
+                            value = username,
+                            onValueChange = { username = it },
+                            label = { Text("Username (optional)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Password field
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { Text("Password (optional)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                    Icon(
+                                        imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                        contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                    )
+                                }
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Divider()
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Or use cookies from your browser:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Browser cookies checkbox
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Checkbox(
+                                checked = useBrowserCookies,
+                                onCheckedChange = { useBrowserCookies = it }
+                            )
+                            Text(
+                                text = "Extract cookies from browser",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+
+                        if (useBrowserCookies) {
+                            // Browser selection
+                            OutlinedTextField(
+                                value = selectedBrowser,
+                                onValueChange = { selectedBrowser = it },
+                                label = { Text("Browser name") },
+                                placeholder = { Text("chrome, firefox, edge, safari") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                        }
+                    }
+                }
+            }
+
             // Convert Button
             Button(
                 onClick = {
@@ -213,7 +342,10 @@ fun UrlInputScreen(
                         isError = true
                     } else {
                         keyboardController?.hide()
-                        checkAndRequestPermissions(urlTextFieldValue.text.trim())
+                        val user = if (username.isNotBlank()) username else null
+                        val pass = if (password.isNotBlank()) password else null
+                        val browser = if (useBrowserCookies && selectedBrowser.isNotBlank()) selectedBrowser else null
+                        checkAndRequestPermissions(urlTextFieldValue.text.trim(), user, pass, browser)
                     }
                 },
                 modifier = Modifier

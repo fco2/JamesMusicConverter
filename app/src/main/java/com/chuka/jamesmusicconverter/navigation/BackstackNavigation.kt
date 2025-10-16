@@ -5,6 +5,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.activity.compose.BackHandler
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.serializer
 
 /**
  * Proper navigation backstack that follows NavKey patterns
@@ -198,16 +201,37 @@ fun NavDisplay(
 }
 
 /**
- * Saver for NavBackStack state preservation
+ * Saver for NavBackStack state preservation using JSON serialization
  */
-private val NavBackStackSaver = androidx.compose.runtime.saveable.Saver<NavBackStack, List<NavKey>>(
-    save = { it.backstack },
-    restore = { savedList ->
-        NavBackStack(savedList.first()).apply {
-            // Restore the full backstack
-            savedList.drop(1).forEach { destination ->
-                navigate(destination)
+private val NavBackStackSaver = androidx.compose.runtime.saveable.Saver<NavBackStack, String>(
+    save = { backstack ->
+        // Serialize the backstack to JSON string
+        Json.encodeToString(
+            ListSerializer(serializer<NavKey>()),
+            backstack.backstack
+        )
+    },
+    restore = { jsonString ->
+        try {
+            // Deserialize from JSON string
+            val savedList = Json.decodeFromString(
+                ListSerializer(serializer<NavKey>()),
+                jsonString
+            )
+            if (savedList.isNotEmpty()) {
+                NavBackStack(savedList.first()).apply {
+                    // Restore the full backstack
+                    savedList.drop(1).forEach { destination: NavKey ->
+                        navigate(destination)
+                    }
+                }
+            } else {
+                // Fallback to initial destination if empty
+                NavBackStack(UrlInputRoute)
             }
+        } catch (_: Exception) {
+            // If deserialization fails, return default backstack
+            NavBackStack(UrlInputRoute)
         }
     }
 )
