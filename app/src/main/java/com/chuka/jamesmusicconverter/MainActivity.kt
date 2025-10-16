@@ -86,6 +86,17 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // For Android 10 (API 29), request WRITE_EXTERNAL_STORAGE for public Downloads
+        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissionsToRequest.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            }
+        }
+
         // For Android 10-12 (API 29-32), request READ_EXTERNAL_STORAGE
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
             Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {

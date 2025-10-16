@@ -129,9 +129,9 @@ class YtDlpDownloader(private val context: Context) {
 
             trySend(DownloadProgress(0.05f, "Fetching video information..."))
 
-            // Create output directory
+            // Create output directory in public Downloads folder
             val downloadsDir = File(
-                context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                 "JamesMusicConverter"
             )
             downloadsDir.mkdirs()
@@ -228,8 +228,9 @@ class YtDlpDownloader(private val context: Context) {
 
             trySend(DownloadProgress(0.05f, "Fetching video information..."))
 
+            // Create output directory in public Downloads folder
             val downloadsDir = File(
-                context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                 "JamesMusicConverter"
             )
             downloadsDir.mkdirs()

@@ -40,9 +40,9 @@ class AudioExtractor(private val context: Context) {
                 throw Exception("Source audio file not found: $videoFilePath")
             }
 
-            // Create output directory
+            // Create output directory in public Downloads folder
             val musicDir = File(
-                context.getExternalFilesDir(Environment.DIRECTORY_MUSIC),
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                 "JamesMusicConverter"
             )
             musicDir.mkdirs()
@@ -91,8 +91,9 @@ class AudioExtractor(private val context: Context) {
         emit(ExtractionProgress(0f, "Preparing download and conversion..."))
 
         try {
+            // Create output directory in public Downloads folder
             val musicDir = File(
-                context.getExternalFilesDir(Environment.DIRECTORY_MUSIC),
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                 "JamesMusicConverter"
             )
             musicDir.mkdirs()

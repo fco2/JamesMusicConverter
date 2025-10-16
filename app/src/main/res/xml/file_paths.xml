@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Music directory -->
+    <!-- Public Downloads directory (new location for all converted files) -->
+    <external-path name="public_downloads" path="Download/JamesMusicConverter/" />
+
+    <!-- Legacy app-specific directories (kept for backwards compatibility) -->
     <files-path name="music_files" path="Music/JamesMusicConverter/" />
-    <!-- Downloads directory -->
     <files-path name="download_files" path="Download/JamesMusicConverter/" />
-    <!-- External storage -->
     <external-files-path name="external_music" path="Music/JamesMusicConverter/" />
     <external-files-path name="external_downloads" path="Download/JamesMusicConverter/" />
 </paths>

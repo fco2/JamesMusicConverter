@@ -110,8 +110,10 @@ The app requires these permissions (defined in AndroidManifest.xml):
 - `ACCESS_NETWORK_STATE`: Check network connectivity
 - `POST_NOTIFICATIONS`: Show completion notifications (Android 13+)
 - `READ_MEDIA_AUDIO`: For accessing converted audio files (Android 13+)
-- `WRITE_EXTERNAL_STORAGE`: For devices API 28 and below (maxSdkVersion="32")
+- `WRITE_EXTERNAL_STORAGE`: For saving files to Downloads folder (maxSdkVersion="32")
 - `READ_EXTERNAL_STORAGE`: For devices API 29-32 (maxSdkVersion="32")
+- `FOREGROUND_SERVICE`: For background download operations
+- `FOREGROUND_SERVICE_DATA_SYNC`: For syncing download data
 
 ### Testing Setup
 - Unit tests: JUnit 4.13.2
@@ -187,8 +189,9 @@ File System + Notifications
 
 #### File Output:
 - **Format**: MP3 (320kbps, best quality)
-- **Location**: `Android/data/com.chuka.jamesmusicconverter/files/Download/JamesMusicConverter/`
+- **Location**: `/storage/emulated/0/Download/JamesMusicConverter/` (Public Downloads folder)
 - **Filename**: Actual video title (e.g., "Best Song Ever.mp3" not "converted_12345.mp3")
+- **Access**: Files are visible in system file manager and music player apps
 
 ### Testing
 Run the app and test with any YouTube URL:

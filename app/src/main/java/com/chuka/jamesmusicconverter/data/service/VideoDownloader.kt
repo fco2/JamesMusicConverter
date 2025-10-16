@@ -110,9 +110,9 @@ class VideoDownloader(private val context: Context) {
                     throw Exception("Invalid content length. This might not be a direct video URL.")
                 }
 
-                // Create downloads directory
+                // Create downloads directory in public Downloads folder
                 val downloadsDir = File(
-                    context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                     "JamesMusicConverter"
                 )
                 downloadsDir.mkdirs()
