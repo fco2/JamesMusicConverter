@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.chuka.jamesmusicconverter.domain.model.ConversionProgress
 import com.chuka.jamesmusicconverter.domain.model.ConversionResult
 import com.chuka.jamesmusicconverter.domain.repository.ConversionRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 sealed class ConversionUiState {
     data object Idle : ConversionUiState()
@@ -17,7 +19,8 @@ sealed class ConversionUiState {
     data class Error(val message: String) : ConversionUiState()
 }
 
-class ConversionProgressViewModel(
+@HiltViewModel
+class ConversionProgressViewModel @Inject constructor(
     private val repository: ConversionRepository
 ) : ViewModel() {
 

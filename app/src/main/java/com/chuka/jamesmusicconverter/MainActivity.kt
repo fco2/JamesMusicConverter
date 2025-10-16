@@ -18,7 +18,9 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.chuka.jamesmusicconverter.navigation.MusicConverterNavGraph
 import com.chuka.jamesmusicconverter.ui.theme.JamesMusicConverterTheme
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private val TAG = "MainActivity"
@@ -40,15 +42,9 @@ class MainActivity : ComponentActivity() {
         // Request necessary permissions
         requestAppPermissions()
 
-        // Configure status bar to use light icons (white color)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = android.graphics.Color.TRANSPARENT
-
-        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        // Set to false to use light-colored icons (white) on the status bar
-        windowInsetsController.isAppearanceLightStatusBars = false
-
+        // Configure status bar to use system theme
         enableEdgeToEdge()
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             JamesMusicConverterTheme {
                 Surface(

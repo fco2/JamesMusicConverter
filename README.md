@@ -87,12 +87,13 @@ The app includes 4 main screens:
 ## 🛠️ Technology Stack
 
 ### Core Technologies
-- **Language**: Kotlin 2.0.21
+- **Language**: Kotlin 2.1.0
 - **UI Framework**: Jetpack Compose with Material 3
 - **Navigation**: Custom NavDisplay system (type-safe navigation with Kotlin Serialization)
+- **Dependency Injection**: Hilt 2.56.2 with KSP 2.1.0-1.0.29
 - **Min SDK**: Android 10 (API 29)
 - **Target SDK**: Android 36
-- **Build System**: Gradle with Kotlin DSL
+- **Build System**: Gradle 8.13 with Kotlin DSL
 
 ### Download & Conversion Libraries
 - **yt-dlp Integration**: `youtubedl-android` (v0.18.+) - YouTube and 1000+ platform support
@@ -105,20 +106,23 @@ The app includes 4 main screens:
 - **Compose BOM**: 2025.08.00
 - **Extended Material Icons**: Additional icon set
 - **Coil**: Image loading library (2.7.0)
+- **Hilt Navigation Compose**: 1.2.0 for ViewModel injection
 - **File Sharing**: AndroidX FileProvider for secure file access
 
 ## 🏗️ Architecture
 
 ### App Architecture
-The app follows modern Android architecture with clean separation of concerns:
+The app follows modern Android architecture with clean separation of concerns and **Hilt dependency injection**:
 
 #### 1. **Presentation Layer** (`ui/`)
 - Jetpack Compose screens with Material 3 components
-- ViewModels for business logic (ConversionCompletedViewModel)
+- Hilt-injected ViewModels using `@HiltViewModel` annotation
 - Type-safe navigation with custom NavDisplay system
+- ViewModels injected via `hiltViewModel()` in Composables
 
 #### 2. **Domain Layer** (`domain/`)
-- `ConversionRepository`: Orchestrates download and conversion flow
+- `ConversionRepository`: Interface for conversion operations
+- `ConversionRepositoryImpl`: Implementation with injected dependencies
 - `ConversionProgress`: Data class for progress updates (0-100%)
 - `ConversionResult`: Data class for final MP3 output
 
@@ -127,6 +131,12 @@ The app follows modern Android architecture with clean separation of concerns:
 - `YtDlpDownloader`: Handles yt-dlp integration for YouTube/platforms
 - `AudioExtractor`: Manages audio file processing
 - `DownloadNotificationService`: Notification management
+- All services provided as singletons via Hilt
+
+#### 4. **Dependency Injection** (`di/`)
+- `AppModule`: Hilt module providing all singleton dependencies
+- Application-scoped providers for services and repositories
+- Context injection using `@ApplicationContext` qualifier
 
 ### Conversion Flow
 ```
@@ -167,10 +177,12 @@ UrlInputRoute → ConversionProgressRoute → ConversionCompletedRoute
 ```
 
 ### Key Design Patterns
-- **Repository Pattern**: `ConversionRepository` abstracts data sources
+- **Dependency Injection (Hilt)**: All dependencies managed by Hilt for testability and modularity
+- **Repository Pattern**: `ConversionRepository` abstracts data sources with constructor injection
 - **Flow-based Progress**: Kotlin Flow for reactive progress updates
 - **FileProvider**: Secure file sharing between apps
-- **Singleton Services**: Reused yt-dlp instance for efficiency
+- **Singleton Services**: Reused yt-dlp instance for efficiency via `@Singleton` scope
+- **MVVM Architecture**: ViewModels with Hilt injection, no Context in ViewModels
 
 ## 🚀 Building the Project
 
@@ -182,15 +194,24 @@ UrlInputRoute → ConversionProgressRoute → ConversionCompletedRoute
 ### Quick Start
 
 ```bash
-# Build the app
-./gradlew build
+# Clean build (recommended for first build)
+./gradlew clean build
 
 # Install debug version to device/emulator
 ./gradlew installDebug
 
+# Build without lint (faster for development)
+./gradlew assembleDebug -x lint
+
 # Run tests
 ./gradlew test
 ```
+
+### Important Notes
+- **First build**: May take longer as Hilt annotation processing runs
+- **Kotlin version**: 2.1.0 with KSP 2.1.0-1.0.29
+- **Gradle version**: 8.13 required
+- **Hilt**: Automatic dependency injection setup via annotations
 
 ## Project Structure
 
@@ -219,8 +240,10 @@ app/src/main/java/com/chuka/jamesmusicconverter/
 
 ```
 app/src/main/java/com/chuka/jamesmusicconverter/
-├── MainActivity.kt                          # Entry point with status bar config
-├── JamesMusicConverterApplication.kt        # Application class with yt-dlp init
+├── MainActivity.kt                          # Entry point (@AndroidEntryPoint for Hilt)
+├── JamesMusicConverterApplication.kt        # Application class (@HiltAndroidApp)
+├── di/
+│   └── AppModule.kt                         # Hilt dependency injection module
 ├── navigation/
 │   ├── BackstackNavigation.kt              # Custom navigation system
 │   ├── Routes.kt                            # Serializable navigation routes
@@ -230,22 +253,23 @@ app/src/main/java/com/chuka/jamesmusicconverter/
 │   │   ├── ConversionProgress.kt           # Progress data (0-100%)
 │   │   └── ConversionResult.kt             # Final MP3 result
 │   └── repository/
-│       └── ConversionRepository.kt          # Main business logic orchestration
+│       └── ConversionRepository.kt          # Repository interface & implementation
 ├── data/
 │   └── service/
-│       ├── VideoDownloader.kt               # URL routing logic
-│       ├── YtDlpDownloader.kt              # yt-dlp wrapper (YouTube, etc.)
-│       ├── AudioExtractor.kt                # Audio file management
-│       └── DownloadNotificationService.kt   # Notification handling
+│       ├── VideoDownloader.kt               # URL routing logic (Hilt injected)
+│       ├── YtDlpDownloader.kt              # yt-dlp wrapper (Hilt injected)
+│       ├── AudioExtractor.kt                # Audio file management (Hilt injected)
+│       └── DownloadNotificationService.kt   # Notification handling (Hilt injected)
 ├── ui/
 │   ├── urlinput/
 │   │   ├── UrlInputScreen.kt               # URL entry screen
-│   │   └── UrlInputViewModel.kt            # Input validation
+│   │   └── UrlInputViewModel.kt            # Input validation (@HiltViewModel)
 │   ├── progress/
-│   │   └── ConversionProgressScreen.kt     # Animated progress
+│   │   ├── ConversionProgressScreen.kt     # Animated progress
+│   │   └── ConversionProgressViewModel.kt  # Progress state (@HiltViewModel)
 │   ├── completed/
 │   │   ├── ConversionCompletedScreen.kt    # Success screen
-│   │   └── ConversionCompletedViewModel.kt # Play/share actions
+│   │   └── ConversionCompletedViewModel.kt # Play/share actions (@HiltViewModel)
 │   ├── error/
 │   │   └── ConversionErrorScreen.kt        # Error handling
 │   └── theme/
@@ -280,8 +304,15 @@ This app is **fully functional** and production-ready with yt-dlp integration:
 
 ### Output:
 - **Format**: MP3 (320kbps, best quality)
-- **Location**: `Android/data/com.chuka.jamesmusicconverter/files/Download/JamesMusicConverter/`
+- **Location**: `/storage/emulated/0/Download/JamesMusicConverter/` (Public Downloads folder)
 - **Filename**: Actual video title (e.g., "Best Song Ever.mp3")
+- **Access**: Files are visible in system file manager and music player apps
+
+### Architecture Highlights:
+- **Hilt Dependency Injection**: All services and repositories use constructor injection
+- **No Context in ViewModels**: ViewModels are properly scoped and testable
+- **Singleton Scope**: Heavy services like yt-dlp are reused across the app
+- **Type-Safe Navigation**: Kotlin serialization for route parameters
 
 ## 🧪 Testing
 
@@ -307,10 +338,20 @@ Or any other supported platform URL:
 ## 📝 Permissions
 
 The app requires these permissions (automatically requested at runtime):
-- `INTERNET` - Download videos
+- `INTERNET` - Download videos from online platforms
+- `ACCESS_NETWORK_STATE` - Check network connectivity
 - `POST_NOTIFICATIONS` - Show completion notifications (Android 13+)
 - `READ_MEDIA_AUDIO` - Access downloaded MP3 files (Android 13+)
-- `READ_EXTERNAL_STORAGE` - Access files on older Android versions (API 29-32)
+- `WRITE_EXTERNAL_STORAGE` - Save files to Downloads folder (API 29-32, maxSdkVersion="32")
+- `READ_EXTERNAL_STORAGE` - Access files on Android 10-12 (API 29-32, maxSdkVersion="32")
+- `FOREGROUND_SERVICE` - Background download operations
+- `FOREGROUND_SERVICE_DATA_SYNC` - Download data syncing
+
+### Permission Scoping
+Permissions are properly scoped by Android version:
+- **Android 13+** (API 33+): Only requests `POST_NOTIFICATIONS` and `READ_MEDIA_AUDIO`
+- **Android 10-12** (API 29-32): Requests storage permissions for public Downloads access
+- **Android 9 and below**: Not supported (min SDK 29)
 
 ## License
 

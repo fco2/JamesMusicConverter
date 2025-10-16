@@ -23,16 +23,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UrlInputScreen(
     onNavigateToProgress: (String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: UrlInputViewModel = viewModel()
+    viewModel: UrlInputViewModel = hiltViewModel()
 ) {
     var urlTextFieldValue by remember { mutableStateOf(TextFieldValue("")) }
     var isError by remember { mutableStateOf(false) }
@@ -113,7 +114,12 @@ fun UrlInputScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("James Music Converter") },
+                title = {
+                    Text(
+                        "James Music Converter",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary

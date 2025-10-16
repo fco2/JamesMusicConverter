@@ -19,12 +19,10 @@ interface ConversionRepository {
 }
 
 class ConversionRepositoryImpl(
-    private val context: Context
+    private val videoDownloader: VideoDownloader,
+    private val audioExtractor: AudioExtractor,
+    private val notificationService: DownloadNotificationService
 ) : ConversionRepository {
-
-    private val videoDownloader = VideoDownloader(context)
-    private val audioExtractor = AudioExtractor(context)
-    private val notificationService = DownloadNotificationService(context)
 
     // Store the last conversion result
     private var lastConversionResult: ConversionResult? = null

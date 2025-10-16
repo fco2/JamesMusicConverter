@@ -1,8 +1,11 @@
 package com.chuka.jamesmusicconverter.ui.urlinput
 
 import androidx.lifecycle.ViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
-class UrlInputViewModel : ViewModel() {
+@HiltViewModel
+class UrlInputViewModel @Inject constructor() : ViewModel() {
 
     /**
      * Validates if the provided URL is valid

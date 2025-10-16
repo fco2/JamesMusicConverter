@@ -11,11 +11,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.chuka.jamesmusicconverter.JamesMusicConverterApplication
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,20 +23,9 @@ fun ConversionProgressScreen(
     videoUrl: String,
     onNavigateToCompleted: (String, String?, String, Long, String) -> Unit,
     onNavigateToError: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: ConversionProgressViewModel = hiltViewModel()
 ) {
-    val context = LocalContext.current
-    val app = context.applicationContext as JamesMusicConverterApplication
-    val viewModel: ConversionProgressViewModel = viewModel(
-        factory = androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(app).let {
-            object : androidx.lifecycle.ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                    return ConversionProgressViewModel(app.conversionRepository) as T
-                }
-            }
-        }
-    )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     // Start conversion when screen is first displayed
@@ -76,7 +65,12 @@ fun ConversionProgressScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("James Music Converter") },
+                title = {
+                    Text(
+                        "James Music Converter",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary

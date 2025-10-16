@@ -6,9 +6,12 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
+import javax.inject.Inject
 
-class ConversionCompletedViewModel : ViewModel() {
+@HiltViewModel
+class ConversionCompletedViewModel @Inject constructor() : ViewModel() {
 
     /**
      * Play the MP3 file using the default music player
