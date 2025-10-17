@@ -43,6 +43,8 @@ class ConversionRepositoryImpl(
     ): Flow<ConversionProgress> = flow {
         try {
             var downloadedFilePath: String? = null
+            var videoTitle: String? = null
+            var thumbnailUrl: String? = null
 
             // Step 1: Download the video (0% - 80%)
             videoDownloader.downloadVideo(
@@ -61,6 +63,12 @@ class ConversionRepositoryImpl(
                 if (downloadProgress.filePath != null) {
                     downloadedFilePath = downloadProgress.filePath
                 }
+
+                // Capture metadata when available
+                if (downloadProgress.metadata != null) {
+                    videoTitle = downloadProgress.metadata.title
+                    thumbnailUrl = downloadProgress.metadata.thumbnail
+                }
             }
 
             // Step 2: Extract audio and convert to MP3 (80% - 100%)
@@ -77,8 +85,8 @@ class ConversionRepositoryImpl(
                     if (extractionProgress.outputFilePath != null) {
                         val outputFile = File(extractionProgress.outputFilePath)
                         lastConversionResult = ConversionResult(
-                            videoTitle = extractTitleFromUrl(videoUrl),
-                            thumbnailUrl = null,
+                            videoTitle = videoTitle ?: extractTitleFromUrl(videoUrl),
+                            thumbnailUrl = thumbnailUrl,
                             fileName = outputFile.name,
                             fileSize = extractionProgress.fileSize,
                             filePath = extractionProgress.outputFilePath

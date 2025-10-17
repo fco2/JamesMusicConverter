@@ -231,5 +231,6 @@ class VideoDownloader(private val context: Context) {
 data class DownloadProgress(
     val progress: Float,
     val message: String,
-    val filePath: String? = null
+    val filePath: String? = null,
+    val metadata: VideoInfo? = null
 )

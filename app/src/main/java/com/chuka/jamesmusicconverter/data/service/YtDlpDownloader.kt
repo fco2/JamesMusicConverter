@@ -221,6 +221,8 @@ class YtDlpDownloader(private val context: Context) {
     ): Flow<DownloadProgress> = callbackFlow {
         trySend(DownloadProgress(0f, "Initializing yt-dlp..."))
 
+        var videoMetadata: VideoInfo? = null
+
         try {
             // Ensure YoutubeDL is initialized
             try {
@@ -237,7 +239,22 @@ class YtDlpDownloader(private val context: Context) {
                 return@callbackFlow
             }
 
-            trySend(DownloadProgress(0.05f, "Fetching video information..."))
+            trySend(DownloadProgress(0.02f, "Fetching video information..."))
+
+            // Try to get video metadata first
+            try {
+                videoMetadata = getVideoInfo(url)
+                if (videoMetadata != null) {
+                    Log.d(TAG, "Retrieved metadata: ${videoMetadata.title}")
+                    trySend(DownloadProgress(
+                        0.05f,
+                        "Found: ${videoMetadata.title}",
+                        metadata = videoMetadata
+                    ))
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not fetch video info, continuing anyway: ${e.message}")
+            }
 
             // Create output directory in public Downloads folder
             val downloadsDir = File(
@@ -301,7 +318,12 @@ class YtDlpDownloader(private val context: Context) {
                 if (downloadedFile != null && downloadedFile.exists()) {
                     val fileSizeMB = downloadedFile.length() / (1024 * 1024)
                     Log.d(TAG, "Downloaded audio: ${downloadedFile.absolutePath} ($fileSizeMB MB)")
-                    trySend(DownloadProgress(1f, "Audio ready", downloadedFile.absolutePath))
+                    trySend(DownloadProgress(
+                        1f,
+                        "Audio ready",
+                        downloadedFile.absolutePath,
+                        metadata = videoMetadata
+                    ))
                 } else {
                     close(Exception("Audio download completed but file not found"))
                 }
@@ -334,6 +356,7 @@ class YtDlpDownloader(private val context: Context) {
             val request = YoutubeDLRequest(url)
             request.addOption("--dump-json")
             request.addOption("--no-playlist")
+            request.addOption("--skip-download")
 
             val response = YoutubeDL.getInstance().execute(request)
 
@@ -341,13 +364,22 @@ class YtDlpDownloader(private val context: Context) {
                 // Parse JSON output (response.out contains the JSON)
                 Log.d(TAG, "Video info retrieved successfully")
 
-                // You can parse this with Gson to get detailed info
-                // For now, return basic placeholder
+                val jsonOutput = response.out
+
+                // Extract metadata using regex patterns (simpler than full JSON parsing)
+                val title = extractFromJson(jsonOutput, "title") ?: "Unknown Title"
+                val thumbnail = extractFromJson(jsonOutput, "thumbnail")
+                val uploader = extractFromJson(jsonOutput, "uploader")
+                val durationStr = extractFromJson(jsonOutput, "duration")
+                val duration = durationStr?.toLongOrNull() ?: 0L
+
+                Log.d(TAG, "Extracted - Title: $title, Thumbnail: $thumbnail")
+
                 VideoInfo(
-                    title = "Video",
-                    duration = 0,
-                    thumbnail = null,
-                    uploader = null
+                    title = title,
+                    duration = duration,
+                    thumbnail = thumbnail,
+                    uploader = uploader
                 )
             } else {
                 Log.e(TAG, "Failed to get video info: ${response.err}")
@@ -356,6 +388,18 @@ class YtDlpDownloader(private val context: Context) {
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get video info", e)
+            null
+        }
+    }
+
+    /**
+     * Simple JSON field extractor using regex
+     */
+    private fun extractFromJson(json: String, fieldName: String): String? {
+        return try {
+            val pattern = """"$fieldName":\s*"([^"]*)"""".toRegex()
+            pattern.find(json)?.groupValues?.get(1)
+        } catch (e: Exception) {
             null
         }
     }
