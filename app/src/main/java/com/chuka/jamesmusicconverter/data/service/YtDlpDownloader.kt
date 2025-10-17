@@ -35,6 +35,10 @@ class YtDlpDownloader(private val context: Context) {
     @Volatile
     private var initializationError: String? = null
 
+    // Track active download sessions for cancellation support
+    private val activeSessions = mutableMapOf<String, String>()
+    private val sessionsLock = Any()
+
     /**
      * Initialize YoutubeDL library with enhanced error handling
      * This must be called before any other operations
@@ -222,6 +226,7 @@ class YtDlpDownloader(private val context: Context) {
         trySend(DownloadProgress(0f, "Initializing yt-dlp..."))
 
         var videoMetadata: VideoInfo? = null
+        val sessionId = java.util.UUID.randomUUID().toString()
 
         try {
             // Ensure YoutubeDL is initialized
@@ -298,12 +303,22 @@ class YtDlpDownloader(private val context: Context) {
 
             Log.d(TAG, "Starting audio-only download for: $url")
 
+            // Register session for cancellation support
+            synchronized(sessionsLock) {
+                activeSessions[sessionId] = url
+            }
+
             // Execute download with progress tracking
             val response = YoutubeDL.getInstance().execute(request) { progress, _, line ->
                 Log.d(TAG, "Audio progress: $progress% - $line")
 
                 val normalizedProgress = 0.1f + (progress / 100f * 0.9f)
                 trySend(DownloadProgress(normalizedProgress, "Downloading audio... $progress%"))
+            }
+
+            // Unregister session after completion
+            synchronized(sessionsLock) {
+                activeSessions.remove(sessionId)
             }
 
             if (response.exitCode == 0) {
@@ -338,9 +353,25 @@ class YtDlpDownloader(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Audio download failed", e)
             close(Exception("Audio download failed: ${e.message}"))
+        } finally {
+            // Always unregister session on completion/error/cancellation
+            synchronized(sessionsLock) {
+                activeSessions.remove(sessionId)
+            }
         }
 
-        awaitClose { Log.d(TAG, "Audio download flow closed") }
+        awaitClose {
+            Log.d(TAG, "Audio download flow closed for session: $sessionId")
+            // Mark session as cancelled (cleanup)
+            synchronized(sessionsLock) {
+                val wasCancelled = activeSessions.remove(sessionId) != null
+                if (wasCancelled) {
+                    Log.d(TAG, "Marked download session as cancelled: $sessionId")
+                }
+            }
+            // Note: YoutubeDL doesn't provide direct process cancellation.
+            // The download may continue in background, but results won't be processed.
+        }
     }.flowOn(Dispatchers.IO)
 
     /**
@@ -472,6 +503,37 @@ class YtDlpDownloader(private val context: Context) {
         }
 
         return files?.maxByOrNull { it.lastModified() }
+    }
+
+    /**
+     * Get list of active download URLs
+     */
+    fun getActiveDownloads(): List<String> {
+        synchronized(sessionsLock) {
+            return activeSessions.values.toList()
+        }
+    }
+
+    /**
+     * Cancel all active downloads
+     * Note: Due to YoutubeDL library limitations, this marks sessions as cancelled
+     * but the underlying process may continue. New results won't be processed.
+     */
+    fun cancelAllDownloads() {
+        synchronized(sessionsLock) {
+            val count = activeSessions.size
+            activeSessions.clear()
+            Log.d(TAG, "Marked $count download session(s) as cancelled")
+        }
+    }
+
+    /**
+     * Check if there are any active downloads
+     */
+    fun hasActiveDownloads(): Boolean {
+        synchronized(sessionsLock) {
+            return activeSessions.isNotEmpty()
+        }
     }
 }
 

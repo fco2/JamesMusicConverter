@@ -42,7 +42,7 @@ fun ConversionProgressScreen(
         )
     }
 
-    // Handle state changes - only navigate on Success or Error after conversion starts
+    // Handle state changes - only navigate on Success, Error, or Cancelled
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is ConversionUiState.Success -> {
@@ -55,6 +55,9 @@ fun ConversionProgressScreen(
                 )
             }
             is ConversionUiState.Error -> {
+                onNavigateToError(state.message)
+            }
+            is ConversionUiState.Cancelled -> {
                 onNavigateToError(state.message)
             }
             else -> { /* No-op */ }
@@ -154,6 +157,21 @@ fun ConversionProgressScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2
                     )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Cancel Button
+            if (uiState is ConversionUiState.Converting && viewModel.isCancellable()) {
+                OutlinedButton(
+                    onClick = { viewModel.cancelConversion() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Cancel Conversion")
                 }
             }
         }

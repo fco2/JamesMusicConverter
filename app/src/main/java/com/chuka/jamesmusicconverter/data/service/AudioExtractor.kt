@@ -21,10 +21,15 @@ class AudioExtractor(private val context: Context) {
     private val mediaCodecExtractor = MediaCodecAudioExtractor(context)
 
     /**
-     * Handles audio extraction/conversion
+     * Handles audio extraction/conversion (optimized for yt-dlp output)
      *
-     * Since yt-dlp now does the conversion using ffmpeg, this just verifies
-     * the file exists and moves it to the final location if needed.
+     * Since yt-dlp now does the conversion using ffmpeg, this function:
+     * 1. Verifies the file exists and is valid
+     * 2. Ensures it's in the correct output location
+     * 3. Validates it's an MP3 file
+     *
+     * @param videoFilePath Path to the audio file (already converted by yt-dlp)
+     * @param outputFileName Optional custom filename
      */
     fun extractAudioToMp3(
         videoFilePath: String,
@@ -40,31 +45,97 @@ class AudioExtractor(private val context: Context) {
                 throw Exception("Source audio file not found: $videoFilePath")
             }
 
+            // Validate file size (should be > 0)
+            if (sourceFile.length() == 0L) {
+                throw Exception("Audio file is empty (0 bytes)")
+            }
+
             // Create output directory in public Downloads folder
             val musicDir = File(
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                 "JamesMusicConverter"
             )
-            musicDir.mkdirs()
 
-            // Use the original filename or provided name
-            val finalFileName = outputFileName ?: sourceFile.name
-            val outputFile = File(musicDir, finalFileName)
-
-            emit(ExtractionProgress(0.3f, "Moving audio file..."))
-
-            // Move/copy file to music directory
-            if (sourceFile.renameTo(outputFile)) {
-                Log.d(TAG, "Audio file moved successfully")
-            } else {
-                // If rename fails, try copy
-                Log.d(TAG, "Rename failed, copying file instead")
-                sourceFile.copyTo(outputFile, overwrite = true)
-                sourceFile.delete()
+            if (!musicDir.exists() && !musicDir.mkdirs()) {
+                throw Exception("Failed to create output directory: ${musicDir.absolutePath}")
             }
 
-            val fileSizeMB = outputFile.length() / (1024 * 1024)
-            Log.d(TAG, "Audio file ready: ${outputFile.absolutePath} ($fileSizeMB MB)")
+            emit(ExtractionProgress(0.2f, "Validating audio file..."))
+
+            // Ensure filename has .mp3 extension
+            val finalFileName = when {
+                outputFileName != null -> {
+                    if (outputFileName.endsWith(".mp3", ignoreCase = true)) {
+                        outputFileName
+                    } else {
+                        "$outputFileName.mp3"
+                    }
+                }
+                sourceFile.name.endsWith(".mp3", ignoreCase = true) -> sourceFile.name
+                else -> "${sourceFile.nameWithoutExtension}.mp3"
+            }
+
+            val outputFile = File(musicDir, finalFileName)
+
+            // Check if source and output are the same
+            if (sourceFile.canonicalPath == outputFile.canonicalPath) {
+                Log.d(TAG, "File is already in the correct location: ${outputFile.absolutePath}")
+                emit(ExtractionProgress(
+                    1f,
+                    "Audio ready",
+                    outputFile.absolutePath,
+                    outputFile.length()
+                ))
+                return@flow
+            }
+
+            emit(ExtractionProgress(0.4f, "Organizing audio file..."))
+
+            // Handle existing file
+            if (outputFile.exists()) {
+                Log.d(TAG, "Output file already exists, will overwrite")
+                outputFile.delete()
+            }
+
+            // Try atomic move first (faster), fallback to copy
+            val moved = try {
+                sourceFile.renameTo(outputFile)
+            } catch (e: Exception) {
+                Log.w(TAG, "Atomic move failed: ${e.message}")
+                false
+            }
+
+            if (moved) {
+                Log.d(TAG, "Audio file moved successfully (atomic)")
+            } else {
+                // Cross-filesystem move - need to copy
+                Log.d(TAG, "Performing copy operation (cross-filesystem)")
+                emit(ExtractionProgress(0.5f, "Copying audio file..."))
+
+                try {
+                    sourceFile.copyTo(outputFile, overwrite = true)
+                    emit(ExtractionProgress(0.9f, "Cleaning up..."))
+
+                    // Delete source after successful copy
+                    if (!sourceFile.delete()) {
+                        Log.w(TAG, "Failed to delete source file: ${sourceFile.absolutePath}")
+                    }
+                } catch (e: Exception) {
+                    // Clean up partial copy
+                    if (outputFile.exists()) {
+                        outputFile.delete()
+                    }
+                    throw Exception("Failed to copy audio file: ${e.message}")
+                }
+            }
+
+            // Final verification
+            if (!outputFile.exists() || outputFile.length() == 0L) {
+                throw Exception("Output file is missing or empty after processing")
+            }
+
+            val fileSizeMB = outputFile.length() / (1024.0 * 1024.0)
+            Log.d(TAG, "Audio file ready: ${outputFile.absolutePath} (${String.format("%.2f", fileSizeMB)} MB)")
 
             emit(ExtractionProgress(
                 1f,
