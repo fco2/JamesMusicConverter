@@ -3,6 +3,8 @@ package com.chuka.jamesmusicconverter.domain
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.provider.DocumentsContract
 import androidx.compose.material3.SnackbarDuration
 import androidx.core.content.FileProvider
 import com.chuka.jamesmusicconverter.ui.components.SnackbarController
@@ -74,22 +76,121 @@ class FileActionHandler @Inject constructor(
                 return
             }
 
-            val uri = getFileUri(file)
-
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "resource/folder")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val parentDir = file.parentFile
+            if (parentDir == null || !parentDir.exists()) {
+                showToast("Directory not found")
+                return
             }
 
-            try {
-                context.startActivity(intent)
-            } catch (e: Exception) {
-                // Fallback: show file path
-                showToast("File location: ${file.parent}", 1) // 1 = LENGTH_LONG
+            android.util.Log.d("FileActionHandler", "Opening folder: ${parentDir.absolutePath}")
+
+            var success = false
+
+            // Approach 1: Use DocumentsContract for Android 10+ (API 29+)
+            // This is the most reliable way on modern Android
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                try {
+                    // Build the proper DocumentsContract URI for the JamesMusicConverter folder
+                    val treeUri = DocumentsContract.buildTreeDocumentUri(
+                        "com.android.externalstorage.documents",
+                        "primary:Download/JamesMusicConverter"
+                    )
+
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(treeUri, DocumentsContract.Document.MIME_TYPE_DIR)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                    }
+                    context.startActivity(intent)
+                    success = true
+                    android.util.Log.d("FileActionHandler", "Opened folder using DocumentsContract")
+                } catch (e: Exception) {
+                    android.util.Log.w("FileActionHandler", "DocumentsContract approach failed: ${e.message}")
+                }
             }
+
+            // Approach 2: Use DocumentsUI to open the specific folder
+            // This works on most Android devices with the built-in file manager
+            if (!success) {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        // Use the DocumentsUI to show the Downloads folder
+                        setDataAndType(
+                            Uri.parse("content://com.android.externalstorage.documents/document/primary:Download%2FJamesMusicConverter"),
+                            "vnd.android.document/directory"
+                        )
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(intent)
+                    success = true
+                    android.util.Log.d("FileActionHandler", "Opened folder using DocumentsUI")
+                } catch (e: Exception) {
+                    android.util.Log.w("FileActionHandler", "DocumentsUI approach failed: ${e.message}")
+                }
+            }
+
+            // Approach 3: Try opening Files app with tree URI
+            if (!success) {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(Uri.parse("content://com.android.externalstorage.documents/tree/primary:Download%2FJamesMusicConverter"),
+                            "vnd.android.document/directory")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(intent)
+                    success = true
+                    android.util.Log.d("FileActionHandler", "Opened folder using Files app")
+                } catch (e: Exception) {
+                    android.util.Log.w("FileActionHandler", "Files app approach failed: ${e.message}")
+                }
+            }
+
+            // Approach 4: Open parent Downloads folder (fallback)
+            if (!success) {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(
+                            Uri.parse("content://com.android.externalstorage.documents/document/primary:Download"),
+                            "vnd.android.document/directory"
+                        )
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                    showToast("Look for 'JamesMusicConverter' folder")
+                    success = true
+                    android.util.Log.d("FileActionHandler", "Opened Downloads folder (parent)")
+                } catch (e: Exception) {
+                    android.util.Log.w("FileActionHandler", "Downloads folder approach failed: ${e.message}")
+                }
+            }
+
+            // Approach 5: Try with file:// URI (works on older Android)
+            if (!success) {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(Uri.fromFile(parentDir), "resource/folder")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                    success = true
+                } catch (e: Exception) {
+                    android.util.Log.w("FileActionHandler", "File URI approach failed: ${e.message}")
+                }
+            }
+
+            // Fallback: Show helpful message with exact path
+            if (!success) {
+                val readablePath = "Download/JamesMusicConverter"
+                showToast("Files saved in: $readablePath\n\nOpen your file manager and navigate to this folder.", 1)
+                android.util.Log.w("FileActionHandler", "All approaches failed, showing path to user")
+            }
+
         } catch (e: Exception) {
-            showToast("Error: ${e.message}")
+            android.util.Log.e("FileActionHandler", "Error opening file location", e)
+            showToast("Error opening folder. Files are in Download/JamesMusicConverter", 1)
         }
     }
 
@@ -120,15 +221,21 @@ class FileActionHandler @Inject constructor(
 
             val uri = getFileUri(file)
 
+            // Detect file type from extension
+            val isVideo = fileName.endsWith(".mp4", ignoreCase = true) ||
+                         fileName.endsWith(".webm", ignoreCase = true)
+            val mimeType = if (isVideo) "video/*" else "audio/mpeg"
+            val mediaType = if (isVideo) "video" else "MP3"
+
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "audio/mpeg"
+                type = mimeType
                 putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "Check out this MP3")
+                putExtra(Intent.EXTRA_SUBJECT, "Check out this $mediaType")
                 putExtra(Intent.EXTRA_TEXT, "Sharing: $fileName")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
 
-            val chooser = Intent.createChooser(shareIntent, "Share MP3").apply {
+            val chooser = Intent.createChooser(shareIntent, "Share $mediaType").apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
 

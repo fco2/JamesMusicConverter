@@ -143,6 +143,8 @@ class ConversionRepositoryImpl(
 
                 DownloadMode.VIDEO -> {
                     // Download video as MP4 (0% - 100%)
+                    var downloadedVideos: List<com.chuka.jamesmusicconverter.domain.model.VideoItem> = emptyList()
+
                     videoDownloader.downloadVideo(
                         url = videoUrl,
                         username = username,
@@ -167,6 +169,12 @@ class ConversionRepositoryImpl(
                             thumbnailUrl = downloadProgress.metadata.thumbnail
                         }
 
+                        // Capture all downloaded files (for playlists)
+                        if (downloadProgress.downloadedFiles.isNotEmpty()) {
+                            downloadedVideos = downloadProgress.downloadedFiles
+                            android.util.Log.d("CHUKA_Repository", "Captured ${downloadedVideos.size} videos from download")
+                        }
+
                         // Store the result when download is complete
                         if (downloadProgress.progress >= 1.0f && downloadedFilePath != null) {
                             val outputFile = File(downloadedFilePath!!)
@@ -177,20 +185,26 @@ class ConversionRepositoryImpl(
                                 fileSize = outputFile.length(),
                                 filePath = downloadedFilePath!!,
                                 durationMillis = 0L,
-                                isVideo = true
+                                isVideo = true,
+                                videos = downloadedVideos  // Include all downloaded videos
                             )
 
                             // Store result with synchronization to prevent race conditions
                             synchronized(lock) {
-                                android.util.Log.d("CHUKA_Repository", "Storing video result for URL: $videoUrl -> ${result.fileName}")
+                                android.util.Log.d("CHUKA_Repository", "Storing video result for URL: $videoUrl -> ${result.fileName} (${result.getVideoCount()} videos)")
                                 conversionResults[videoUrl] = result
                             }
 
                             // Show notification when download is complete
+                            val notificationMessage = if (downloadedVideos.size > 1) {
+                                "Downloaded ${downloadedVideos.size} videos"
+                            } else {
+                                outputFile.name
+                            }
                             notificationService.showDownloadCompletedNotification(
-                                fileName = outputFile.name,
+                                fileName = notificationMessage,
                                 filePath = downloadedFilePath!!,
-                                fileSize = outputFile.length()
+                                fileSize = result.getTotalSize()
                             )
                         }
                     }

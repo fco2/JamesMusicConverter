@@ -1,6 +1,8 @@
 package com.chuka.jamesmusicconverter.data.service
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
 import android.os.Environment
 import android.util.Log
 import com.yausername.youtubedl_android.YoutubeDL
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
 
 /**
  * YouTube and platform video downloader using youtubedl-android library
@@ -24,7 +27,7 @@ import java.io.File
  */
 class YtDlpDownloader(private val context: Context) {
 
-    private val TAG = "YtDlpDownloader"
+    private val TAG = "CHUKA_NEW_YtDlpDownloader"
 
     @Volatile
     private var isInitialized = false
@@ -105,6 +108,55 @@ class YtDlpDownloader(private val context: Context) {
     }
 
     /**
+     * Check if URL is a playlist or contains multiple videos
+     * Works for YouTube playlists, Instagram carousels, etc.
+     */
+    suspend fun isPlaylist(url: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            ensureInitialized()
+
+            // For Instagram, always treat as potential multi-post
+            // yt-dlp will handle single vs multi internally
+            if (url.contains("instagram.com")) {
+                Log.d(TAG, "Instagram URL detected - checking for carousel/multi-post")
+
+                val request = YoutubeDLRequest(url)
+                request.addOption("--flat-playlist")
+                request.addOption("--dump-json")
+                // Don't skip download check for Instagram
+
+                val response = YoutubeDL.getInstance().execute(request)
+
+                // Count JSON entries - Instagram carousels will have multiple
+                val jsonLines = response.out.lines().filter { it.trim().startsWith("{") }
+                val jsonCount = jsonLines.size
+                val isMultiPost = jsonCount > 1
+
+                Log.d(TAG, "Instagram: Found $jsonCount item(s) - ${if (isMultiPost) "carousel/multi-post" else "single post"}")
+                return@withContext isMultiPost
+            }
+
+            // For other platforms (YouTube, etc.)
+            val request = YoutubeDLRequest(url)
+            request.addOption("--flat-playlist")
+            request.addOption("--dump-json")
+
+            val response = YoutubeDL.getInstance().execute(request)
+
+            // If there are multiple JSON objects, it's a playlist
+            val jsonCount = response.out.lines().count { it.trim().startsWith("{") }
+            val isPlaylist = jsonCount > 1
+
+            Log.d(TAG, "URL $url is ${if (isPlaylist) "a playlist with $jsonCount videos" else "a single video"}")
+            isPlaylist
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking if URL is playlist", e)
+            // For Instagram, default to allowing playlist mode to capture all videos
+            url.contains("instagram.com")
+        }
+    }
+
+    /**
      * Download video using yt-dlp with progress tracking (downloads full video with audio as MP4)
      * Uses video title as filename if available
      *
@@ -113,13 +165,15 @@ class YtDlpDownloader(private val context: Context) {
      * @param username Optional username for authentication
      * @param password Optional password for authentication
      * @param cookiesFromBrowser Optional browser to extract cookies from (e.g., "chrome", "firefox", "edge")
+     * @param allowPlaylist Whether to download playlists (default: false, single video only)
      */
     fun downloadVideo(
         url: String,
         outputFileName: String? = null,
         username: String? = null,
         password: String? = null,
-        cookiesFromBrowser: String? = null
+        cookiesFromBrowser: String? = null,
+        allowPlaylist: Boolean = false
     ): Flow<DownloadProgress> = callbackFlow {
         trySend(DownloadProgress(0f, "Initializing yt-dlp..."))
 
@@ -166,6 +220,18 @@ class YtDlpDownloader(private val context: Context) {
             )
             downloadsDir.mkdirs()
 
+            // Track download start time to identify new/updated files
+            val downloadStartTime = System.currentTimeMillis()
+
+            // Track existing files with their modification times
+            val existingFilesMap = if (allowPlaylist) {
+                downloadsDir.listFiles { file -> file.extension == "mp4" }
+                    ?.associateWith { it.lastModified() } ?: emptyMap()
+            } else {
+                emptyMap()
+            }
+            Log.d(TAG, "Existing MP4 files before download: ${existingFilesMap.size}")
+
             // Use video title as filename, or fallback to provided name
             val fileTemplate = outputFileName ?: "%(title)s"
             val outputTemplate = File(downloadsDir, "$fileTemplate.%(ext)s").absolutePath
@@ -180,7 +246,17 @@ class YtDlpDownloader(private val context: Context) {
             request.addOption("-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best")
             // Merge into MP4 format
             request.addOption("--merge-output-format", "mp4")
-            request.addOption("--no-playlist")
+            // Force overwrite existing files (allows re-downloading same video)
+            request.addOption("--force-overwrites")
+
+            // Playlist handling
+            if (allowPlaylist) {
+                request.addOption("--yes-playlist")
+                Log.d(TAG, "Playlist download enabled")
+            } else {
+                request.addOption("--no-playlist")
+            }
+
             request.addOption("--socket-timeout", "30")
             request.addOption("--retries", "3")
             // Try to avoid geo-blocking issues
@@ -230,26 +306,85 @@ class YtDlpDownloader(private val context: Context) {
             Log.d(TAG, "Download completed. Exit code: ${response.exitCode}")
 
             if (response.exitCode == 0) {
-                // Find the downloaded file - if we used video title template, search for most recent MP4
-                val downloadedFile = if (outputFileName != null) {
-                    findDownloadedFile(downloadsDir, outputFileName)
-                } else {
-                    // Find most recently downloaded MP4 file
-                    downloadsDir.listFiles { file -> file.extension == "mp4" }?.maxByOrNull { it.lastModified() }
-                }
+                if (allowPlaylist) {
+                    // For playlists, find files that are NEW or were UPDATED during download
+                    val allMp4Files = downloadsDir.listFiles { file ->
+                        file.extension == "mp4"
+                    } ?: emptyArray()
 
-                if (downloadedFile != null && downloadedFile.exists()) {
-                    val fileSizeMB = downloadedFile.length() / (1024 * 1024)
-                    Log.d(TAG, "Downloaded video: ${downloadedFile.absolutePath} ($fileSizeMB MB)")
-                    trySend(DownloadProgress(
-                        1f,
-                        "Video ready",
-                        downloadedFile.absolutePath,
-                        metadata = videoMetadata
-                    ))
+                    // Find files that are either:
+                    // 1. New (didn't exist before), OR
+                    // 2. Were modified/updated after download started (re-downloaded/replaced)
+                    val downloadedFiles = allMp4Files.filter { file ->
+                        val wasNew = !existingFilesMap.containsKey(file)
+                        val wasUpdated = existingFilesMap[file]?.let { oldModTime ->
+                            file.lastModified() > oldModTime
+                        } ?: false
+                        val wasDownloadedNow = file.lastModified() >= downloadStartTime - 1000 // 1s buffer
+
+                        wasNew || wasUpdated || wasDownloadedNow
+                    }.sortedByDescending { it.lastModified() }
+
+                    Log.d(TAG, "Found ${downloadedFiles.size} downloaded/updated video(s) (total MP4s: ${allMp4Files.size}, previously existing: ${existingFilesMap.size})")
+
+                    if (downloadedFiles.isNotEmpty()) {
+                        Log.d(TAG, "Downloaded ${downloadedFiles.size} videos from playlist")
+
+                        // Create VideoItem for each downloaded file with thumbnail extraction
+                        val videoItems = downloadedFiles.map { file ->
+                            // Extract title from filename (remove extension)
+                            val title = file.nameWithoutExtension
+
+                            // Extract thumbnail from video file
+                            val thumbnailPath = extractThumbnailFromVideo(file)
+
+                            com.chuka.jamesmusicconverter.domain.model.VideoItem(
+                                title = title,
+                                fileName = file.name,
+                                fileSize = file.length(),
+                                filePath = file.absolutePath,
+                                thumbnailUrl = thumbnailPath,  // Local file path to extracted thumbnail
+                                durationMillis = 0L
+                            )
+                        }
+
+                        // Return primary video info with all videos
+                        val downloadedFile = downloadedFiles.first()
+                        val fileSizeMB = downloadedFile.length() / (1024 * 1024)
+                        Log.d(TAG, "Primary video: ${downloadedFile.absolutePath} ($fileSizeMB MB)")
+                        trySend(DownloadProgress(
+                            1f,
+                            "Downloaded ${downloadedFiles.size} video${if (downloadedFiles.size > 1) "s" else ""}",
+                            downloadedFile.absolutePath,
+                            metadata = videoMetadata,
+                            downloadedFiles = videoItems
+                        ))
+                    } else {
+                        Log.e(TAG, "Playlist download completed but no files found")
+                        close(Exception("Download completed but no video files were found in the output directory."))
+                    }
                 } else {
-                    Log.e(TAG, "Download completed but file not found in ${downloadsDir.absolutePath}")
-                    close(Exception("Video download completed but file not found"))
+                    // Single video download
+                    val downloadedFile = if (outputFileName != null) {
+                        findDownloadedFile(downloadsDir, outputFileName)
+                    } else {
+                        // Find most recently downloaded MP4 file
+                        downloadsDir.listFiles { file -> file.extension == "mp4" }?.maxByOrNull { it.lastModified() }
+                    }
+
+                    if (downloadedFile != null && downloadedFile.exists()) {
+                        val fileSizeMB = downloadedFile.length() / (1024 * 1024)
+                        Log.d(TAG, "Downloaded video: ${downloadedFile.absolutePath} ($fileSizeMB MB)")
+                        trySend(DownloadProgress(
+                            1f,
+                            "Video ready",
+                            downloadedFile.absolutePath,
+                            metadata = videoMetadata
+                        ))
+                    } else {
+                        Log.e(TAG, "Download completed but file not found in ${downloadsDir.absolutePath}")
+                        close(Exception("Video download completed but file not found"))
+                    }
                 }
             } else {
                 val errorMsg = response.err ?: "Unknown error"
@@ -357,6 +492,8 @@ class YtDlpDownloader(private val context: Context) {
             request.addOption("-x")  // Extract audio
             request.addOption("--audio-format", "mp3")  // Convert to MP3
             request.addOption("--audio-quality", "0")  // Best quality (320kbps for MP3)
+            // Force overwrite existing files (allows re-downloading same audio)
+            request.addOption("--force-overwrites")
             request.addOption("--no-playlist")
             request.addOption("--socket-timeout", "30")
             // Add retries for network issues
@@ -574,6 +711,43 @@ class YtDlpDownloader(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update yt-dlp", e)
             false
+        }
+    }
+
+    /**
+     * Extract thumbnail from video file
+     * Returns the path to the saved thumbnail image, or null if extraction fails
+     */
+    private fun extractThumbnailFromVideo(videoFile: File): String? {
+        return try {
+            val retriever = MediaMetadataRetriever()
+            retriever.setDataSource(videoFile.absolutePath)
+
+            // Extract frame at 1 second (or first frame if video is shorter)
+            val bitmap = retriever.getFrameAtTime(1_000_000) // 1 second in microseconds
+            retriever.release()
+
+            if (bitmap != null) {
+                // Create thumbnails directory
+                val thumbnailsDir = File(videoFile.parent, ".thumbnails")
+                thumbnailsDir.mkdirs()
+
+                // Save thumbnail as JPEG
+                val thumbnailFile = File(thumbnailsDir, "${videoFile.nameWithoutExtension}_thumb.jpg")
+                FileOutputStream(thumbnailFile).use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                }
+                bitmap.recycle()
+
+                Log.d(TAG, "Extracted thumbnail for ${videoFile.name}: ${thumbnailFile.absolutePath}")
+                thumbnailFile.absolutePath
+            } else {
+                Log.w(TAG, "Failed to extract thumbnail bitmap for ${videoFile.name}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error extracting thumbnail from ${videoFile.name}", e)
+            null
         }
     }
 

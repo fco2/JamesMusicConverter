@@ -1,8 +1,15 @@
 package com.chuka.jamesmusicconverter.ui.completed
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.chuka.jamesmusicconverter.domain.FileActionHandler
+import com.chuka.jamesmusicconverter.domain.model.ConversionResult
+import com.chuka.jamesmusicconverter.domain.repository.ConversionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.util.Locale
 import javax.inject.Inject
 
@@ -13,11 +20,36 @@ private const val PLAY_DEBOUNCE_DELAY = 1000L // 1 second
  */
 @HiltViewModel
 class ConversionCompletedViewModel @Inject constructor(
-    private val fileActionHandler: FileActionHandler
+    private val fileActionHandler: FileActionHandler,
+    private val repository: ConversionRepository
 ) : ViewModel() {
 
     // Debounce mechanism to prevent rapid successive play calls
     private var lastPlayTime = 0L
+
+    // Full conversion result with all videos (for playlists)
+    private val _conversionResult = MutableStateFlow<ConversionResult?>(null)
+    val conversionResult: StateFlow<ConversionResult?> = _conversionResult.asStateFlow()
+
+    /**
+     * Load the full conversion result from repository
+     */
+    fun loadResult(videoUrl: String) {
+        if (videoUrl.isNotBlank()) {
+            viewModelScope.launch {
+                val result = repository.getConversionResult(videoUrl)
+                result.fold(
+                    onSuccess = { conversionResult ->
+                        _conversionResult.value = conversionResult
+                        android.util.Log.d("CHUKA_Completed", "Loaded result with ${conversionResult.getVideoCount()} videos")
+                    },
+                    onFailure = { exception ->
+                        android.util.Log.e("CHUKA_Completed", "Failed to load result", exception)
+                    }
+                )
+            }
+        }
+    }
 
     /**
      * Play the media file using the default player (video or audio)

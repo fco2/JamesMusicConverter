@@ -77,9 +77,9 @@ fun MusicConverterNavGraph() {
                     password = destination.password,
                     cookiesFromBrowser = destination.cookiesFromBrowser,
                     downloadMode = destination.downloadMode,
-                    onNavigateToCompleted = { videoTitle, thumbnailUrl, fileName, fileSize, filePath, durationMillis, isVideo ->
+                    onNavigateToCompleted = { videoTitle, thumbnailUrl, fileName, fileSize, filePath, durationMillis, isVideo, videoUrl, videoCount ->
                         android.util.Log.d("CHUKA_NavGraph", "=== onNavigateToCompleted callback ===")
-                        android.util.Log.d("CHUKA_NavGraph", "Navigating to completed: $fileName (isVideo: $isVideo)")
+                        android.util.Log.d("CHUKA_NavGraph", "Navigating to completed: $fileName (isVideo: $isVideo, videoCount: $videoCount)")
 
                         // Replace current screen with completed screen
                         backStack.replace(
@@ -90,7 +90,9 @@ fun MusicConverterNavGraph() {
                                 fileSize = fileSize,
                                 filePath = filePath,
                                 durationMillis = durationMillis,
-                                isVideo = isVideo
+                                isVideo = isVideo,
+                                videoUrl = videoUrl,
+                                videoCount = videoCount
                             )
                         )
                     },
@@ -111,7 +113,7 @@ fun MusicConverterNavGraph() {
 
             is ConversionCompletedRoute -> {
                 android.util.Log.d("CHUKA_NavGraph", "=== Showing ConversionCompletedScreen ===")
-                android.util.Log.d("CHUKA_NavGraph", "File: ${destination.fileName} (isVideo: ${destination.isVideo})")
+                android.util.Log.d("CHUKA_NavGraph", "File: ${destination.fileName} (isVideo: ${destination.isVideo}, videoCount: ${destination.videoCount})")
 
                 ConversionCompletedScreen(
                     videoTitle = destination.videoTitle,
@@ -121,6 +123,8 @@ fun MusicConverterNavGraph() {
                     filePath = destination.filePath,
                     durationMillis = destination.durationMillis,
                     isVideo = destination.isVideo,
+                    videoUrl = destination.videoUrl,
+                    videoCount = destination.videoCount,
                     onNavigateBack = {
                         // Clear stack and go back to input screen
                         backStack.clearAndNavigate(UrlInputRoute)

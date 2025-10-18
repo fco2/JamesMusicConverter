@@ -190,39 +190,7 @@ fun UrlInputScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Audio Mode Button
-                FilterChip(
-                    selected = uiState.downloadMode == DownloadMode.AUDIO,
-                    onClick = {
-                        if (uiState.downloadMode != DownloadMode.AUDIO) {
-                            viewModel.updateDownloadMode(DownloadMode.AUDIO)
-                        }
-                    },
-                    label = {
-                        Text(
-                            "Audio (MP3)",
-                            fontWeight = if (uiState.downloadMode == DownloadMode.AUDIO) FontWeight.Bold else FontWeight.Normal
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.MusicNote,
-                            contentDescription = "Audio mode",
-                            modifier = Modifier.size(18.dp)
-                        )
-                    },
-                    modifier = Modifier.weight(1f),
-                    border = if (uiState.downloadMode == DownloadMode.AUDIO) {
-                        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                    } else null,
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                )
-
-                // Video Mode Button
+                // Video Mode Button (now first/left)
                 FilterChip(
                     selected = uiState.downloadMode == DownloadMode.VIDEO,
                     onClick = {
@@ -245,6 +213,38 @@ fun UrlInputScreen(
                     },
                     modifier = Modifier.weight(1f),
                     border = if (uiState.downloadMode == DownloadMode.VIDEO) {
+                        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                    } else null,
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                )
+
+                // Audio Mode Button (now second/right)
+                FilterChip(
+                    selected = uiState.downloadMode == DownloadMode.AUDIO,
+                    onClick = {
+                        if (uiState.downloadMode != DownloadMode.AUDIO) {
+                            viewModel.updateDownloadMode(DownloadMode.AUDIO)
+                        }
+                    },
+                    label = {
+                        Text(
+                            "Audio (MP3)",
+                            fontWeight = if (uiState.downloadMode == DownloadMode.AUDIO) FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.MusicNote,
+                            contentDescription = "Audio mode",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                    border = if (uiState.downloadMode == DownloadMode.AUDIO) {
                         BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
                     } else null,
                     colors = FilterChipDefaults.filterChipColors(

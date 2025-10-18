@@ -18,7 +18,7 @@ data class UrlInputUiState(
     val passwordVisible: Boolean = false,
     val selectedBrowser: String = "",
     val useBrowserCookies: Boolean = false,
-    val downloadMode: DownloadMode = DownloadMode.AUDIO
+    val downloadMode: DownloadMode = DownloadMode.VIDEO  // Default to video mode
 )
 
 @HiltViewModel

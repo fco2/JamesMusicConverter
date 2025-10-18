@@ -67,6 +67,11 @@ class VideoDownloader(private val context: Context) {
                 if (ytDlpAvailable) {
                     Log.d("VideoDownloader", "Using yt-dlp for: $url")
 
+                    // Check if URL is a playlist/multi-video (Instagram carousel, YouTube playlist, etc.)
+                    emit(DownloadProgress(0.02f, "Checking for multiple videos..."))
+                    val isPlaylist = ytDlpDownloader.isPlaylist(url)
+                    Log.d("CHUKA_NEW_VideoDownloader", "URL is ${if (isPlaylist) "a playlist/multi-video" else "a single video"}")
+
                     // Choose download method based on mode
                     when (downloadMode) {
                         DownloadMode.AUDIO -> {
@@ -82,11 +87,13 @@ class VideoDownloader(private val context: Context) {
                         }
                         DownloadMode.VIDEO -> {
                             // Use downloadVideo which downloads full video as MP4
+                            // Enable playlist download if URL contains multiple videos
                             ytDlpDownloader.downloadVideo(
                                 url = url,
                                 username = username,
                                 password = password,
-                                cookiesFromBrowser = cookiesFromBrowser
+                                cookiesFromBrowser = cookiesFromBrowser,
+                                allowPlaylist = isPlaylist  // Download all videos if playlist
                             ).collect { progress ->
                                 emit(progress)
                             }
@@ -96,7 +103,7 @@ class VideoDownloader(private val context: Context) {
                 } else {
                     // Get detailed error information
                     val errorDetails = ytDlpDownloader.getInitializationError() ?: "Unknown error"
-                    Log.e("VideoDownloader", "yt-dlp not available: $errorDetails")
+                    Log.e("CHUKA_NEW_VideoDownloader", "yt-dlp not available: $errorDetails")
 
                     throw Exception(
                         "Cannot download from this platform. " +
@@ -132,8 +139,8 @@ class VideoDownloader(private val context: Context) {
                 val contentLength = body.contentLength()
                 val contentType = response.header("Content-Type")
 
-                Log.d("VideoDownloader", "Content-Type: $contentType")
-                Log.d("VideoDownloader", "Content-Length: $contentLength")
+                Log.d("CHUKA_NEW_VideoDownloader", "Content-Type: $contentType")
+                Log.d("CHUKA_NEW_VideoDownloader", "Content-Length: $contentLength")
 
                 // Validate it's actually a video
                 if (contentType != null && !contentType.startsWith("video/") && !contentType.startsWith("application/octet-stream")) {
@@ -252,5 +259,6 @@ data class DownloadProgress(
     val progress: Float,
     val message: String,
     val filePath: String? = null,
-    val metadata: VideoInfo? = null
+    val metadata: VideoInfo? = null,
+    val downloadedFiles: List<com.chuka.jamesmusicconverter.domain.model.VideoItem> = emptyList()  // For playlists
 )

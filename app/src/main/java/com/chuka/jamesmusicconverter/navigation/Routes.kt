@@ -46,7 +46,9 @@ data class ConversionCompletedRoute(
     val fileSize: Long,
     val filePath: String,
     val durationMillis: Long = 0,
-    val isVideo: Boolean = false  // true if video file (MP4), false if audio (MP3)
+    val isVideo: Boolean = false,  // true if video file (MP4), false if audio (MP3)
+    val videoUrl: String = "",      // URL to fetch full result from repository (for playlists)
+    val videoCount: Int = 1         // Number of videos (for UI hint)
 ) : NavKey
 
 /**

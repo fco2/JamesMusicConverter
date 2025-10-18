@@ -59,7 +59,7 @@ fun ConversionProgressScreen(
     password: String? = null,
     cookiesFromBrowser: String? = null,
     downloadMode: DownloadMode = DownloadMode.AUDIO,
-    onNavigateToCompleted: (String, String?, String, Long, String, Long, Boolean) -> Unit,
+    onNavigateToCompleted: (String, String?, String, Long, String, Long, Boolean, String, Int) -> Unit,  // Added videoUrl and videoCount
     onNavigateToError: (String) -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -138,7 +138,9 @@ fun ConversionProgressScreen(
                     state.result.fileSize,
                     state.result.filePath,
                     state.result.durationMillis,
-                    state.result.isVideo
+                    state.result.isVideo,
+                    videoUrl,  // Pass videoUrl for fetching full result
+                    state.result.getVideoCount()  // Pass video count
                 )
             }
             is ConversionUiState.Error -> {
