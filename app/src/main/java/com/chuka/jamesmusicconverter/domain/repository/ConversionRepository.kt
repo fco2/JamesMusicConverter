@@ -6,12 +6,13 @@ import com.chuka.jamesmusicconverter.data.service.DownloadNotificationService
 import com.chuka.jamesmusicconverter.data.service.VideoDownloader
 import com.chuka.jamesmusicconverter.domain.model.ConversionProgress
 import com.chuka.jamesmusicconverter.domain.model.ConversionResult
+import com.chuka.jamesmusicconverter.navigation.DownloadMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import java.io.File
 
 /**
- * Repository for handling video-to-MP3 conversion operations
+ * Repository for handling video-to-MP3 conversion and video download operations
  */
 interface ConversionRepository {
     fun convertVideoToMp3(
@@ -20,6 +21,15 @@ interface ConversionRepository {
         password: String? = null,
         cookiesFromBrowser: String? = null
     ): Flow<ConversionProgress>
+
+    fun downloadMedia(
+        videoUrl: String,
+        username: String? = null,
+        password: String? = null,
+        cookiesFromBrowser: String? = null,
+        downloadMode: DownloadMode = DownloadMode.AUDIO
+    ): Flow<ConversionProgress>
+
     suspend fun getConversionResult(videoUrl: String): Result<ConversionResult>
 }
 
@@ -35,7 +45,167 @@ class ConversionRepositoryImpl(
     private val lock = Any()
 
     /**
-     * Converts video to MP3 by downloading and extracting audio
+     * Downloads media (video or audio) based on the download mode
+     * For AUDIO mode: downloads and converts to MP3
+     * For VIDEO mode: downloads video as MP4
+     */
+    override fun downloadMedia(
+        videoUrl: String,
+        username: String?,
+        password: String?,
+        cookiesFromBrowser: String?,
+        downloadMode: DownloadMode
+    ): Flow<ConversionProgress> = flow {
+        android.util.Log.d("CHUKA_Repository", "=== downloadMedia called ===")
+        android.util.Log.d("CHUKA_Repository", "URL: $videoUrl, Mode: $downloadMode")
+
+        synchronized(lock) {
+            android.util.Log.d("CHUKA_Repository", "Cached results before clear: ${conversionResults.keys}")
+            // Clear any previous result for this URL to ensure fresh conversion
+            conversionResults.remove(videoUrl)
+            android.util.Log.d("CHUKA_Repository", "Cached results after clear: ${conversionResults.keys}")
+        }
+
+        try {
+            var downloadedFilePath: String? = null
+            var videoTitle: String? = null
+            var thumbnailUrl: String? = null
+
+            when (downloadMode) {
+                DownloadMode.AUDIO -> {
+                    // Step 1: Download the video (0% - 80%)
+                    videoDownloader.downloadVideo(
+                        url = videoUrl,
+                        username = username,
+                        password = password,
+                        cookiesFromBrowser = cookiesFromBrowser,
+                        downloadMode = DownloadMode.AUDIO
+                    ).collect { downloadProgress ->
+                        // Ensure progress is never negative
+                        val normalizedProgress = downloadProgress.progress.coerceAtLeast(0f)
+                        emit(ConversionProgress(
+                            percentage = normalizedProgress * 0.8f,
+                            statusMessage = downloadProgress.message
+                        ))
+
+                        if (downloadProgress.filePath != null) {
+                            downloadedFilePath = downloadProgress.filePath
+                        }
+
+                        // Capture metadata when available
+                        if (downloadProgress.metadata != null) {
+                            videoTitle = downloadProgress.metadata.title
+                            thumbnailUrl = downloadProgress.metadata.thumbnail
+                        }
+                    }
+
+                    // Step 2: Extract audio and convert to MP3 (80% - 100%)
+                    if (downloadedFilePath != null) {
+                        audioExtractor.extractAudioToMp3(downloadedFilePath!!).collect { extractionProgress ->
+                            // Ensure progress is never negative
+                            val normalizedProgress = extractionProgress.progress.coerceAtLeast(0f)
+                            emit(ConversionProgress(
+                                percentage = 0.8f + (normalizedProgress * 0.2f),
+                                statusMessage = extractionProgress.message
+                            ))
+
+                            // Store the result when extraction is complete
+                            if (extractionProgress.outputFilePath != null) {
+                                val outputFile = File(extractionProgress.outputFilePath)
+                                val result = ConversionResult(
+                                    videoTitle = videoTitle ?: extractTitleFromUrl(videoUrl),
+                                    thumbnailUrl = thumbnailUrl,
+                                    fileName = outputFile.name,
+                                    fileSize = extractionProgress.fileSize,
+                                    filePath = extractionProgress.outputFilePath,
+                                    durationMillis = extractionProgress.durationMillis,
+                                    isVideo = false
+                                )
+
+                                // Store result with synchronization to prevent race conditions
+                                synchronized(lock) {
+                                    android.util.Log.d("CHUKA_Repository", "Storing audio result for URL: $videoUrl -> ${result.fileName}")
+                                    conversionResults[videoUrl] = result
+                                }
+
+                                // Show notification when conversion is complete
+                                notificationService.showDownloadCompletedNotification(
+                                    fileName = outputFile.name,
+                                    filePath = extractionProgress.outputFilePath,
+                                    fileSize = extractionProgress.fileSize
+                                )
+                            }
+                        }
+                    } else {
+                        throw Exception("Failed to download audio")
+                    }
+                }
+
+                DownloadMode.VIDEO -> {
+                    // Download video as MP4 (0% - 100%)
+                    videoDownloader.downloadVideo(
+                        url = videoUrl,
+                        username = username,
+                        password = password,
+                        cookiesFromBrowser = cookiesFromBrowser,
+                        downloadMode = DownloadMode.VIDEO
+                    ).collect { downloadProgress ->
+                        // Ensure progress is never negative
+                        val normalizedProgress = downloadProgress.progress.coerceAtLeast(0f)
+                        emit(ConversionProgress(
+                            percentage = normalizedProgress,
+                            statusMessage = downloadProgress.message
+                        ))
+
+                        if (downloadProgress.filePath != null) {
+                            downloadedFilePath = downloadProgress.filePath
+                        }
+
+                        // Capture metadata when available
+                        if (downloadProgress.metadata != null) {
+                            videoTitle = downloadProgress.metadata.title
+                            thumbnailUrl = downloadProgress.metadata.thumbnail
+                        }
+
+                        // Store the result when download is complete
+                        if (downloadProgress.progress >= 1.0f && downloadedFilePath != null) {
+                            val outputFile = File(downloadedFilePath!!)
+                            val result = ConversionResult(
+                                videoTitle = videoTitle ?: extractTitleFromUrl(videoUrl),
+                                thumbnailUrl = thumbnailUrl,
+                                fileName = outputFile.name,
+                                fileSize = outputFile.length(),
+                                filePath = downloadedFilePath!!,
+                                durationMillis = 0L,
+                                isVideo = true
+                            )
+
+                            // Store result with synchronization to prevent race conditions
+                            synchronized(lock) {
+                                android.util.Log.d("CHUKA_Repository", "Storing video result for URL: $videoUrl -> ${result.fileName}")
+                                conversionResults[videoUrl] = result
+                            }
+
+                            // Show notification when download is complete
+                            notificationService.showDownloadCompletedNotification(
+                                fileName = outputFile.name,
+                                filePath = downloadedFilePath!!,
+                                fileSize = outputFile.length()
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Re-throw CancellationException as-is so it can be properly handled by the ViewModel
+            throw e
+        } catch (e: Exception) {
+            throw Exception("Download failed: ${e.message}")
+        }
+    }
+
+    /**
+     * Converts video to MP3 by downloading and extracting audio (legacy method)
      */
     override fun convertVideoToMp3(
         videoUrl: String,

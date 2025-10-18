@@ -3,6 +3,7 @@ package com.chuka.jamesmusicconverter.data.service
 import android.content.Context
 import android.os.Environment
 import android.util.Log
+import com.chuka.jamesmusicconverter.navigation.DownloadMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -37,19 +38,21 @@ class VideoDownloader(private val context: Context) {
      * @param username Optional username for authentication (for sites like Vimeo)
      * @param password Optional password for authentication
      * @param cookiesFromBrowser Optional browser to extract cookies from (e.g., "chrome", "firefox")
+     * @param downloadMode Whether to download as audio (MP3) or video (MP4)
      */
     fun downloadVideo(
         url: String,
         username: String? = null,
         password: String? = null,
-        cookiesFromBrowser: String? = null
+        cookiesFromBrowser: String? = null,
+        downloadMode: DownloadMode = DownloadMode.AUDIO
     ): Flow<DownloadProgress> = flow {
         emit(DownloadProgress(0f, "Preparing download..."))
 
         try {
             // Check if URL requires yt-dlp (YouTube, Vimeo, etc.)
             if (requiresYtDlp(url)) {
-                Log.d("VideoDownloader", "URL requires yt-dlp: $url")
+                Log.d("VideoDownloader", "URL requires yt-dlp: $url (mode: $downloadMode)")
                 emit(DownloadProgress(0.01f, "Checking yt-dlp availability..."))
 
                 // Use yt-dlp for platform-specific URLs
@@ -63,14 +66,31 @@ class VideoDownloader(private val context: Context) {
 
                 if (ytDlpAvailable) {
                     Log.d("VideoDownloader", "Using yt-dlp for: $url")
-                    // Use downloadAudioOnly which converts to MP3 using ffmpeg
-                    ytDlpDownloader.downloadAudioOnly(
-                        url = url,
-                        username = username,
-                        password = password,
-                        cookiesFromBrowser = cookiesFromBrowser
-                    ).collect { progress ->
-                        emit(progress)
+
+                    // Choose download method based on mode
+                    when (downloadMode) {
+                        DownloadMode.AUDIO -> {
+                            // Use downloadAudioOnly which converts to MP3 using ffmpeg
+                            ytDlpDownloader.downloadAudioOnly(
+                                url = url,
+                                username = username,
+                                password = password,
+                                cookiesFromBrowser = cookiesFromBrowser
+                            ).collect { progress ->
+                                emit(progress)
+                            }
+                        }
+                        DownloadMode.VIDEO -> {
+                            // Use downloadVideo which downloads full video as MP4
+                            ytDlpDownloader.downloadVideo(
+                                url = url,
+                                username = username,
+                                password = password,
+                                cookiesFromBrowser = cookiesFromBrowser
+                            ).collect { progress ->
+                                emit(progress)
+                            }
+                        }
                     }
                     return@flow
                 } else {

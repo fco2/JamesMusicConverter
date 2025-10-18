@@ -28,6 +28,7 @@ fun ConversionCompletedScreen(
     fileSize: Long,
     filePath: String,
     durationMillis: Long = 0,
+    isVideo: Boolean = false,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ConversionCompletedViewModel = hiltViewModel()
@@ -76,7 +77,7 @@ fun ConversionCompletedScreen(
 
             // Title
             Text(
-                text = "Conversion Successful!",
+                text = if (isVideo) "Download Successful!" else "Conversion Successful!",
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center
@@ -126,7 +127,7 @@ fun ConversionCompletedScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.MusicNote,
+                            imageVector = if (isVideo) Icons.Default.VideoLibrary else Icons.Default.MusicNote,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
@@ -219,7 +220,7 @@ fun ConversionCompletedScreen(
             // Play Button
             Button(
                 onClick = {
-                    viewModel.playFile(filePath)
+                    viewModel.playFile(filePath, isVideo)
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -232,7 +233,7 @@ fun ConversionCompletedScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Play MP3",
+                    text = if (isVideo) "Play Video" else "Play MP3",
                     style = MaterialTheme.typography.titleSmall
                 )
             }
@@ -279,7 +280,7 @@ fun ConversionCompletedScreen(
                 )
             }
 
-            // Convert Another Button
+            // Convert/Download Another Button
             Button(
                 onClick = onNavigateBack,
                 modifier = Modifier
@@ -293,7 +294,7 @@ fun ConversionCompletedScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Convert Another Video",
+                    text = if (isVideo) "Download Another" else "Convert Another",
                     style = MaterialTheme.typography.titleSmall
                 )
             }

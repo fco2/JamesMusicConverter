@@ -22,9 +22,9 @@ class FileActionHandler @Inject constructor(
 ) {
 
     /**
-     * Play the MP3 file using the default music player
+     * Play the media file using the default player (video or audio)
      */
-    fun playFile(filePath: String) {
+    fun playFile(filePath: String, isVideo: Boolean = false) {
         try {
             val file = File(filePath)
             if (!file.exists()) {
@@ -33,13 +33,15 @@ class FileActionHandler @Inject constructor(
             }
 
             val uri = getFileUri(file)
+            val mimeType = if (isVideo) "video/mp4" else "audio/mpeg"
+            val chooserTitle = if (isVideo) "Play Video" else "Play MP3"
 
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "audio/mpeg")
+                setDataAndType(uri, mimeType)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
 
-            val chooser = Intent.createChooser(intent, "Play MP3").apply {
+            val chooser = Intent.createChooser(intent, chooserTitle).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
 

@@ -2,6 +2,7 @@ package com.chuka.jamesmusicconverter.ui.urlinput
 
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
+import com.chuka.jamesmusicconverter.navigation.DownloadMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +17,8 @@ data class UrlInputUiState(
     val password: String = "",
     val passwordVisible: Boolean = false,
     val selectedBrowser: String = "",
-    val useBrowserCookies: Boolean = false
+    val useBrowserCookies: Boolean = false,
+    val downloadMode: DownloadMode = DownloadMode.AUDIO
 )
 
 @HiltViewModel
@@ -102,6 +104,13 @@ class UrlInputViewModel @Inject constructor() : ViewModel() {
      */
     fun updateSelectedBrowser(browser: String) {
         _uiState.value = _uiState.value.copy(selectedBrowser = browser)
+    }
+
+    /**
+     * Updates download mode (audio or video)
+     */
+    fun updateDownloadMode(mode: DownloadMode) {
+        _uiState.value = _uiState.value.copy(downloadMode = mode)
     }
 
     /**

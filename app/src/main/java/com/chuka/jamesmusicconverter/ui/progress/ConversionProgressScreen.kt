@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.chuka.jamesmusicconverter.navigation.DownloadMode
 import com.chuka.jamesmusicconverter.ui.components.SnackbarController
 import com.chuka.jamesmusicconverter.ui.components.SnackbarViewModel
 
@@ -57,7 +58,8 @@ fun ConversionProgressScreen(
     username: String? = null,
     password: String? = null,
     cookiesFromBrowser: String? = null,
-    onNavigateToCompleted: (String, String?, String, Long, String, Long) -> Unit,
+    downloadMode: DownloadMode = DownloadMode.AUDIO,
+    onNavigateToCompleted: (String, String?, String, Long, String, Long, Boolean) -> Unit,
     onNavigateToError: (String) -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -90,13 +92,14 @@ fun ConversionProgressScreen(
             kotlinx.coroutines.delay(10)
         }
 
-        android.util.Log.d("CHUKA_Screen", "State confirmed Idle, starting conversion...")
+        android.util.Log.d("CHUKA_Screen", "State confirmed Idle, starting conversion... (mode: $downloadMode)")
 
         viewModel.startConversion(
             videoUrl = videoUrl,
             username = username,
             password = password,
-            cookiesFromBrowser = cookiesFromBrowser
+            cookiesFromBrowser = cookiesFromBrowser,
+            downloadMode = downloadMode
         )
 
         // Track the generation of this conversion
@@ -134,7 +137,8 @@ fun ConversionProgressScreen(
                     state.result.fileName,
                     state.result.fileSize,
                     state.result.filePath,
-                    state.result.durationMillis
+                    state.result.durationMillis,
+                    state.result.isVideo
                 )
             }
             is ConversionUiState.Error -> {

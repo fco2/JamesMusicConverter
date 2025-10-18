@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.chuka.jamesmusicconverter.domain.model.ConversionProgress
 import com.chuka.jamesmusicconverter.domain.model.ConversionResult
 import com.chuka.jamesmusicconverter.domain.repository.ConversionRepository
+import com.chuka.jamesmusicconverter.navigation.DownloadMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,16 +42,17 @@ class ConversionProgressViewModel @Inject constructor(
     fun getCurrentGeneration(): Int = conversionGeneration
 
     /**
-     * Starts the conversion process for the given video URL
+     * Starts the conversion/download process for the given video URL
      */
     fun startConversion(
         videoUrl: String,
         username: String? = null,
         password: String? = null,
-        cookiesFromBrowser: String? = null
+        cookiesFromBrowser: String? = null,
+        downloadMode: DownloadMode = DownloadMode.AUDIO
     ) {
         android.util.Log.d("CHUKA_ViewModel", "=== startConversion called ===")
-        android.util.Log.d("CHUKA_ViewModel", "URL: $videoUrl")
+        android.util.Log.d("CHUKA_ViewModel", "URL: $videoUrl, Mode: $downloadMode")
         android.util.Log.d("CHUKA_ViewModel", "Current state: ${_uiState.value}")
 
         // Silently cancel any ongoing conversion without setting Cancelled state
@@ -73,17 +75,18 @@ class ConversionProgressViewModel @Inject constructor(
         currentConversionUrl = videoUrl
         _uiState.value = ConversionUiState.Idle
 
-        android.util.Log.d("CHUKA_ViewModel", "Starting coroutine for conversion...")
+        android.util.Log.d("CHUKA_ViewModel", "Starting coroutine for ${if (downloadMode == DownloadMode.VIDEO) "video download" else "audio conversion"}...")
 
         conversionJob = viewModelScope.launch {
             try {
-                android.util.Log.d("CHUKA_ViewModel", "Calling repository.convertVideoToMp3...")
+                android.util.Log.d("CHUKA_ViewModel", "Calling repository.downloadMedia...")
                 // Collect progress updates
-                repository.convertVideoToMp3(
+                repository.downloadMedia(
                     videoUrl = videoUrl,
                     username = username,
                     password = password,
-                    cookiesFromBrowser = cookiesFromBrowser
+                    cookiesFromBrowser = cookiesFromBrowser,
+                    downloadMode = downloadMode
                 ).collect { progress ->
                     //android.util.Log.d("CHUKA_ViewModel", "Progress: ${progress.percentage * 100}% - ${progress.statusMessage}")
                     _uiState.value = ConversionUiState.Converting(progress, isCancellable = true, generation = thisGeneration)

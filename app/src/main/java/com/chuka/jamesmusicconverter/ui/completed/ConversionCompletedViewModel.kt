@@ -16,10 +16,10 @@ class ConversionCompletedViewModel @Inject constructor(
 ) : ViewModel() {
 
     /**
-     * Play the MP3 file using the default music player
+     * Play the media file using the default player (video or audio)
      */
-    fun playFile(filePath: String) {
-        fileActionHandler.playFile(filePath)
+    fun playFile(filePath: String, isVideo: Boolean = false) {
+        fileActionHandler.playFile(filePath, isVideo)
     }
 
     /**

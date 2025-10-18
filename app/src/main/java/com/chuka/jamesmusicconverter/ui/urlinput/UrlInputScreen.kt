@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
@@ -37,17 +38,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.chuka.jamesmusicconverter.navigation.DownloadMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UrlInputScreen(
-    onNavigateToProgress: (String, String?, String?, String?) -> Unit,
+    onNavigateToProgress: (String, String?, String?, String?, DownloadMode) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: UrlInputViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showPermissionDialog by remember { mutableStateOf(false) }
-    var pendingAuthData by remember { mutableStateOf<Pair<String, AuthData?>?>(null) }
+    var pendingAuthData by remember { mutableStateOf<Triple<String, AuthData?, DownloadMode>?>(null) }
 
     val clipboardManager = LocalClipboard.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -66,8 +68,8 @@ fun UrlInputScreen(
         val allGranted = permissions.values.all { it }
         if (allGranted) {
             // Permissions granted, proceed with conversion
-            pendingAuthData?.let { (url, authData) ->
-                onNavigateToProgress(url, authData?.username, authData?.password, authData?.browser)
+            pendingAuthData?.let { (url, authData, downloadMode) ->
+                onNavigateToProgress(url, authData?.username, authData?.password, authData?.browser, downloadMode)
                 pendingAuthData = null
             }
         } else {
@@ -77,14 +79,14 @@ fun UrlInputScreen(
     }
 
     // Function to check and request permissions
-    fun checkAndRequestPermissions(url: String, authData: AuthData?) {
+    fun checkAndRequestPermissions(url: String, authData: AuthData?, downloadMode: DownloadMode) {
         val permissionsToRequest = mutableListOf<String>()
 
         // For Android 13+ (API 33+), need INTERNET only (INTERNET is not runtime permission)
         // For Android 10-12 (API 29-32), need READ_EXTERNAL_STORAGE
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // Android 13+: We're using app-specific directories, no permissions needed
-            onNavigateToProgress(url, authData?.username, authData?.password, authData?.browser)
+            onNavigateToProgress(url, authData?.username, authData?.password, authData?.browser, downloadMode)
             return
         }
 
@@ -99,10 +101,10 @@ fun UrlInputScreen(
 
         if (permissionsToRequest.isEmpty()) {
             // All permissions already granted
-            onNavigateToProgress(url, authData?.username, authData?.password, authData?.browser)
+            onNavigateToProgress(url, authData?.username, authData?.password, authData?.browser, downloadMode)
         } else {
             // Request permissions
-            pendingAuthData = Pair(url, authData)
+            pendingAuthData = Triple(url, authData, downloadMode)
             permissionLauncher.launch(permissionsToRequest.toTypedArray())
         }
     }
@@ -146,36 +148,85 @@ fun UrlInputScreen(
             modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(24.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // App Icon
             Icon(
                 imageVector = Icons.Default.MusicNote,
                 contentDescription = null,
-                modifier = Modifier.size(80.dp),
+                modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
 
             // Title
             Text(
-                text = "Convert Videos to MP3",
-                style = MaterialTheme.typography.headlineMedium,
+                text = when (uiState.downloadMode) {
+                    DownloadMode.AUDIO -> "Convert Videos to MP3"
+                    DownloadMode.VIDEO -> "Download Videos"
+                },
+                style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onBackground
             )
 
             // Description
             Text(
-                text = "Enter a YouTube or video URL to convert it to MP3 format",
+                text = when (uiState.downloadMode) {
+                    DownloadMode.AUDIO -> "Enter a video URL to convert it to MP3 format"
+                    DownloadMode.VIDEO -> "Enter a video URL to download it as MP4"
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            // Download Mode Toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Audio Mode Button
+                FilterChip(
+                    selected = uiState.downloadMode == DownloadMode.AUDIO,
+                    onClick = {
+                        if (uiState.downloadMode != DownloadMode.AUDIO) {
+                            viewModel.updateDownloadMode(DownloadMode.AUDIO)
+                        }
+                    },
+                    label = { Text("Audio (MP3)") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.MusicNote,
+                            contentDescription = "Audio mode",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+
+                // Video Mode Button
+                FilterChip(
+                    selected = uiState.downloadMode == DownloadMode.VIDEO,
+                    onClick = {
+                        if (uiState.downloadMode != DownloadMode.VIDEO) {
+                            viewModel.updateDownloadMode(DownloadMode.VIDEO)
+                        }
+                    },
+                    label = { Text("Video (MP4)") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.VideoLibrary,
+                            contentDescription = "Video mode",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
             // URL Input Field
             OutlinedTextField(
@@ -336,26 +387,29 @@ fun UrlInputScreen(
                 }
             }
 
-            // Convert Button
+            // Convert/Download Button
             Button(
                 onClick = {
                     keyboardController?.hide()
                     viewModel.validateAndGetAuthData()?.let { (url, authData, _) ->
-                        checkAndRequestPermissions(url, authData)
+                        checkAndRequestPermissions(url, authData, uiState.downloadMode)
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(52.dp),
                 enabled = uiState.urlTextFieldValue.text.isNotBlank()
             ) {
                 Text(
-                    text = "Convert to MP3",
+                    text = when (uiState.downloadMode) {
+                        DownloadMode.AUDIO -> "Convert to MP3"
+                        DownloadMode.VIDEO -> "Download Video"
+                    },
                     style = MaterialTheme.typography.titleMedium
                 )
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Info Card
             Card(
@@ -365,8 +419,8 @@ fun UrlInputScreen(
                 )
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
                         text = "Supported Platforms:",
@@ -374,12 +428,14 @@ fun UrlInputScreen(
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Text(
-                        text = "• YouTube\n• Vimeo\n• Dailymotion\n• And many more...",
+                        text = "• YouTube, Dailymotion\n• Instagram, TikTok\n• Twitter/X, Facebook\n• And 1000+ more platforms...",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }

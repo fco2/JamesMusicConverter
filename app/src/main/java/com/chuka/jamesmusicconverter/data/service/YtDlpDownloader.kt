@@ -105,14 +105,26 @@ class YtDlpDownloader(private val context: Context) {
     }
 
     /**
-     * Download video using yt-dlp with progress tracking
+     * Download video using yt-dlp with progress tracking (downloads full video with audio as MP4)
      * Uses video title as filename if available
+     *
+     * @param url The video URL to download
+     * @param outputFileName Optional custom filename (without extension)
+     * @param username Optional username for authentication
+     * @param password Optional password for authentication
+     * @param cookiesFromBrowser Optional browser to extract cookies from (e.g., "chrome", "firefox", "edge")
      */
     fun downloadVideo(
         url: String,
-        outputFileName: String? = null
+        outputFileName: String? = null,
+        username: String? = null,
+        password: String? = null,
+        cookiesFromBrowser: String? = null
     ): Flow<DownloadProgress> = callbackFlow {
         trySend(DownloadProgress(0f, "Initializing yt-dlp..."))
+
+        var videoMetadata: VideoInfo? = null
+        val sessionId = java.util.UUID.randomUUID().toString()
 
         try {
             // Ensure YoutubeDL is initialized
@@ -124,14 +136,28 @@ class YtDlpDownloader(private val context: Context) {
                     Exception(
                         "Cannot initialize yt-dlp downloader. " +
                                 "This might be due to device compatibility issues. " +
-                                "Please try using a direct video URL instead. " +
                                 "Technical details: ${e.message}"
                     )
                 )
                 return@callbackFlow
             }
 
-            trySend(DownloadProgress(0.05f, "Fetching video information..."))
+            trySend(DownloadProgress(0.02f, "Fetching video information..."))
+
+            // Try to get video metadata first
+            try {
+                videoMetadata = getVideoInfo(url)
+                if (videoMetadata != null) {
+                    Log.d(TAG, "Retrieved metadata: ${videoMetadata.title}")
+                    trySend(DownloadProgress(
+                        0.05f,
+                        "Found: ${videoMetadata.title}",
+                        metadata = videoMetadata
+                    ))
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not fetch video info, continuing anyway: ${e.message}")
+            }
 
             // Create output directory in public Downloads folder
             val downloadsDir = File(
@@ -144,72 +170,116 @@ class YtDlpDownloader(private val context: Context) {
             val fileTemplate = outputFileName ?: "%(title)s"
             val outputTemplate = File(downloadsDir, "$fileTemplate.%(ext)s").absolutePath
 
-            trySend(DownloadProgress(0.1f, "Starting download..."))
+            trySend(DownloadProgress(0.1f, "Starting video download..."))
 
-            // Create download request
+            // Create download request for video with audio (best quality MP4)
             val request = YoutubeDLRequest(url)
             request.addOption("-o", outputTemplate)
-            // Flexible format selection - try best audio, fallback to best overall
-            // yt-dlp will automatically choose the best available format
-            request.addOption("-f", "bestaudio/best")
+            // Download best video+audio, merge into MP4 if needed
+            // This format selector ensures we get both video and audio
+            request.addOption("-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best")
+            // Merge into MP4 format
+            request.addOption("--merge-output-format", "mp4")
             request.addOption("--no-playlist")
-            // Add socket timeout to handle network issues
             request.addOption("--socket-timeout", "30")
-            // Add retries for network issues
             request.addOption("--retries", "3")
+            // Try to avoid geo-blocking issues
+            request.addOption("--geo-bypass")
 
-            Log.d(TAG, "Starting download for: $url")
+            // Add authentication if provided
+            if (!username.isNullOrBlank() && !password.isNullOrBlank()) {
+                Log.d(TAG, "Adding username/password authentication")
+                request.addOption("--username", username)
+                request.addOption("--password", password)
+            }
+
+            // Add cookies from browser if specified
+            if (!cookiesFromBrowser.isNullOrBlank()) {
+                Log.d(TAG, "Extracting cookies from browser: $cookiesFromBrowser")
+                request.addOption("--cookies-from-browser", cookiesFromBrowser)
+            }
+
+            Log.d(TAG, "Starting video download for: $url")
             Log.d(TAG, "Output template: $outputTemplate")
+
+            // Register session for cancellation support
+            synchronized(sessionsLock) {
+                activeSessions[sessionId] = url
+            }
 
             // Execute download with progress tracking
             val response = YoutubeDL.getInstance().execute(request) { progress, _, line ->
-                //Log.d(TAG, "Progress: $progress% - $line")
+                //Log.d(TAG, "Video progress: $progress% - $line")
 
                 // yt-dlp reports -1 when it doesn't know total size yet
                 val actualProgress = if (progress < 0) 0f else progress
-                val normalizedProgress = 0.1f + (actualProgress / 100f * 0.8f)
+                val normalizedProgress = 0.1f + (actualProgress / 100f * 0.9f)
                 val statusMessage = if (progress < 0) {
-                    "Downloading..."
+                    "Downloading video..."
                 } else {
-                    "Downloading... $progress%"
+                    "Downloading video... $progress%"
                 }
                 trySend(DownloadProgress(normalizedProgress, statusMessage))
+            }
+
+            // Unregister session after completion
+            synchronized(sessionsLock) {
+                activeSessions.remove(sessionId)
             }
 
             Log.d(TAG, "Download completed. Exit code: ${response.exitCode}")
 
             if (response.exitCode == 0) {
-                // Find the downloaded file - if we used video title template, search for most recent file
+                // Find the downloaded file - if we used video title template, search for most recent MP4
                 val downloadedFile = if (outputFileName != null) {
                     findDownloadedFile(downloadsDir, outputFileName)
                 } else {
-                    // Find most recently downloaded file
-                    downloadsDir.listFiles()?.maxByOrNull { it.lastModified() }
+                    // Find most recently downloaded MP4 file
+                    downloadsDir.listFiles { file -> file.extension == "mp4" }?.maxByOrNull { it.lastModified() }
                 }
 
                 if (downloadedFile != null && downloadedFile.exists()) {
                     val fileSizeMB = downloadedFile.length() / (1024 * 1024)
-                    Log.d(TAG, "Downloaded file: ${downloadedFile.absolutePath} ($fileSizeMB MB)")
-                    trySend(DownloadProgress(1f, "Download complete", downloadedFile.absolutePath))
+                    Log.d(TAG, "Downloaded video: ${downloadedFile.absolutePath} ($fileSizeMB MB)")
+                    trySend(DownloadProgress(
+                        1f,
+                        "Video ready",
+                        downloadedFile.absolutePath,
+                        metadata = videoMetadata
+                    ))
                 } else {
                     Log.e(TAG, "Download completed but file not found in ${downloadsDir.absolutePath}")
-                    close(Exception("Download completed but file not found"))
+                    close(Exception("Video download completed but file not found"))
                 }
             } else {
                 val errorMsg = response.err ?: "Unknown error"
                 Log.e(TAG, "Download failed: $errorMsg")
                 Log.e(TAG, "Full error output: ${response.out}")
-                close(Exception("Download failed: $errorMsg"))
+                close(Exception("Video download failed: $errorMsg"))
             }
 
             close()
 
         } catch (e: Exception) {
-            Log.e(TAG, "Download failed", e)
-            close(Exception("Download failed: ${e.message}"))
+            Log.e(TAG, "Video download failed", e)
+            close(Exception("Video download failed: ${e.message}"))
+        } finally {
+            // Always unregister session on completion/error/cancellation
+            synchronized(sessionsLock) {
+                activeSessions.remove(sessionId)
+            }
         }
 
-        awaitClose { Log.d(TAG, "Download flow closed") }
+        awaitClose {
+            Log.d(TAG, "Video download flow closed for session: $sessionId")
+            // Mark session as cancelled (cleanup)
+            synchronized(sessionsLock) {
+                val wasCancelled = activeSessions.remove(sessionId) != null
+                if (wasCancelled) {
+                    Log.d(TAG, "Marked video download session as cancelled: $sessionId")
+                }
+            }
+        }
     }.flowOn(Dispatchers.IO)
 
     /**

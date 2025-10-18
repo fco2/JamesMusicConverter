@@ -15,6 +15,15 @@ sealed interface NavKey
 object UrlInputRoute : NavKey
 
 /**
+ * Download mode enum for serialization
+ */
+@Serializable
+enum class DownloadMode {
+    AUDIO,  // Convert to MP3
+    VIDEO   // Download as MP4
+}
+
+/**
  * Screen showing conversion progress with animation
  */
 @Serializable
@@ -22,7 +31,8 @@ data class ConversionProgressRoute(
     val videoUrl: String,
     val username: String? = null,
     val password: String? = null,
-    val cookiesFromBrowser: String? = null
+    val cookiesFromBrowser: String? = null,
+    val downloadMode: DownloadMode = DownloadMode.AUDIO
 ) : NavKey
 
 /**
@@ -35,7 +45,8 @@ data class ConversionCompletedRoute(
     val fileName: String,
     val fileSize: Long,
     val filePath: String,
-    val durationMillis: Long = 0
+    val durationMillis: Long = 0,
+    val isVideo: Boolean = false  // true if video file (MP4), false if audio (MP3)
 ) : NavKey
 
 /**
