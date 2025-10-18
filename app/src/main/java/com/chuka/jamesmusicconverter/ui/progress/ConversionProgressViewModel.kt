@@ -108,12 +108,16 @@ class ConversionProgressViewModel @Inject constructor(
                     }
                 )
             } catch (_: kotlinx.coroutines.CancellationException) {
-                // Flow was cancelled - this is normal when navigating away
-                // Only update state if we're still in Converting state
+                // Flow was cancelled - this is normal when navigating away or when user clicks cancel
+                // Only update state if we're still in Converting state with the correct generation
                 if (_uiState.value is ConversionUiState.Converting) {
-                    _uiState.value = ConversionUiState.Cancelled("Conversion cancelled", generation = thisGeneration)
+                    val currentState = _uiState.value as? ConversionUiState.Converting
+                    if (currentState?.generation == thisGeneration) {
+                        _uiState.value = ConversionUiState.Cancelled("Conversion cancelled", generation = thisGeneration)
+                    }
                 }
-                conversionJob = null
+                // DON'T clear conversionJob here - it might have been replaced by a new conversion
+                // Let the new conversion or cancelConversion() handle clearing
                 // Don't re-throw - let it cancel gracefully
             } catch (e: Exception) {
                 _uiState.value = ConversionUiState.Error(
