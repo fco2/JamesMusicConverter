@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,10 +56,7 @@ fun UrlInputScreen(
 
     // Clear URL when screen is first shown (e.g., after completing a conversion)
     LaunchedEffect(Unit) {
-        // Only clear if there's content (to avoid clearing on first app launch)
-        if (uiState.urlTextFieldValue.text.isNotBlank()) {
-            viewModel.clearUrl()
-        }
+        viewModel.clearUrl()
     }
 
     // Permission launcher
@@ -292,7 +290,11 @@ fun UrlInputScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        Divider()
+                        HorizontalDivider(
+                            Modifier,
+                            DividerDefaults.Thickness,
+                            DividerDefaults.color
+                        )
 
                         Spacer(modifier = Modifier.height(12.dp))
 

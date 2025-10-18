@@ -86,9 +86,6 @@ fun MusicConverterNavGraph() {
                     filePath = destination.filePath,
                     durationMillis = destination.durationMillis,
                     onNavigateBack = {
-                        android.util.Log.d("CHUKA_NavGraph", "=== onNavigateBack from Completed ===")
-                        android.util.Log.d("CHUKA_NavGraph", "Clearing stack and going to UrlInputRoute")
-
                         // Clear stack and go back to input screen
                         backStack.clearAndNavigate(UrlInputRoute)
                     }

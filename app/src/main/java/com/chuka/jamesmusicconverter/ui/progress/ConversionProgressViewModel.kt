@@ -15,10 +15,10 @@ import javax.inject.Inject
 
 sealed class ConversionUiState {
     data object Idle : ConversionUiState()
-    data class Converting(val progress: ConversionProgress, val isCancellable: Boolean = true) : ConversionUiState()
-    data class Success(val result: ConversionResult) : ConversionUiState()
-    data class Error(val message: String) : ConversionUiState()
-    data class Cancelled(val message: String = "Conversion cancelled") : ConversionUiState()
+    data class Converting(val progress: ConversionProgress, val isCancellable: Boolean = true, val generation: Int = 0) : ConversionUiState()
+    data class Success(val result: ConversionResult, val generation: Int = 0) : ConversionUiState()
+    data class Error(val message: String, val generation: Int = 0) : ConversionUiState()
+    data class Cancelled(val message: String = "Conversion cancelled", val generation: Int = 0) : ConversionUiState()
 }
 
 @HiltViewModel
@@ -31,6 +31,14 @@ class ConversionProgressViewModel @Inject constructor(
 
     private var currentConversionUrl: String? = null
     private var conversionJob: Job? = null
+
+    // Track conversion generation to prevent stale state navigation
+    private var conversionGeneration = 0
+
+    /**
+     * Gets the current conversion generation
+     */
+    fun getCurrentGeneration(): Int = conversionGeneration
 
     /**
      * Starts the conversion process for the given video URL
@@ -48,6 +56,12 @@ class ConversionProgressViewModel @Inject constructor(
         // Silently cancel any ongoing conversion without setting Cancelled state
         conversionJob?.cancel()
         conversionJob = null
+
+        // Increment generation for this new conversion
+        conversionGeneration++
+        val thisGeneration = conversionGeneration
+
+        android.util.Log.d("CHUKA_ViewModel", "Starting conversion generation $thisGeneration")
 
         // Prevent re-triggering conversion for the same URL if already converting
         if (currentConversionUrl == videoUrl &&
@@ -72,7 +86,7 @@ class ConversionProgressViewModel @Inject constructor(
                     cookiesFromBrowser = cookiesFromBrowser
                 ).collect { progress ->
                     //android.util.Log.d("CHUKA_ViewModel", "Progress: ${progress.percentage * 100}% - ${progress.statusMessage}")
-                    _uiState.value = ConversionUiState.Converting(progress, isCancellable = true)
+                    _uiState.value = ConversionUiState.Converting(progress, isCancellable = true, generation = thisGeneration)
                 }
 
                 android.util.Log.d("CHUKA_ViewModel", "Flow completed, getting final result...")
@@ -80,14 +94,15 @@ class ConversionProgressViewModel @Inject constructor(
                 val result = repository.getConversionResult(videoUrl)
                 result.fold(
                     onSuccess = { conversionResult ->
-                        android.util.Log.d("CHUKA_ViewModel", "SUCCESS: ${conversionResult.fileName}")
-                        _uiState.value = ConversionUiState.Success(conversionResult)
+                        android.util.Log.d("CHUKA_ViewModel", "SUCCESS: ${conversionResult.fileName} (generation $thisGeneration)")
+                        _uiState.value = ConversionUiState.Success(conversionResult, generation = thisGeneration)
                         conversionJob = null
                     },
                     onFailure = { exception ->
-                        android.util.Log.e("CHUKA_ViewModel", "ERROR: ${exception.message}")
+                        android.util.Log.e("CHUKA_ViewModel", "ERROR: ${exception.message} (generation $thisGeneration)")
                         _uiState.value = ConversionUiState.Error(
-                            exception.message ?: "An error occurred during conversion"
+                            exception.message ?: "An error occurred during conversion",
+                            generation = thisGeneration
                         )
                         conversionJob = null
                     }
@@ -96,13 +111,14 @@ class ConversionProgressViewModel @Inject constructor(
                 // Flow was cancelled - this is normal when navigating away
                 // Only update state if we're still in Converting state
                 if (_uiState.value is ConversionUiState.Converting) {
-                    _uiState.value = ConversionUiState.Cancelled("Conversion cancelled")
+                    _uiState.value = ConversionUiState.Cancelled("Conversion cancelled", generation = thisGeneration)
                 }
                 conversionJob = null
                 // Don't re-throw - let it cancel gracefully
             } catch (e: Exception) {
                 _uiState.value = ConversionUiState.Error(
-                    e.message ?: "An error occurred during conversion"
+                    e.message ?: "An error occurred during conversion",
+                    generation = thisGeneration
                 )
                 conversionJob = null
             }

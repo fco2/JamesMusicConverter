@@ -352,21 +352,21 @@ For **development/testing**:
 
 ## File Size Comparison
 
-| Method | APK Size Increase |
-|--------|------------------|
-| Standalone binary | +15-25 MB |
-| Chaquopy (Python) | +50-80 MB |
-| Runtime download | 0 MB (downloads ~15 MB) |
-| API Service | 0 MB |
+| Method            | APK Size Increase       |
+|-------------------|-------------------------|
+| Standalone binary | +15-25 MB               |
+| Chaquopy (Python) | +50-80 MB               |
+| Runtime download  | 0 MB (downloads ~15 MB) |
+| API Service       | 0 MB                    |
 
 ## Performance
 
-| Method | Speed | Reliability |
-|--------|-------|-------------|
-| Local binary | Fast | Offline |
-| Chaquopy | Medium | Offline |
-| Runtime download | Fast | Requires setup |
-| API Service | Depends on server | Requires internet |
+| Method           | Speed             | Reliability       |
+|------------------|-------------------|-------------------|
+| Local binary     | Fast              | Offline           |
+| Chaquopy         | Medium            | Offline           |
+| Runtime download | Fast              | Requires setup    |
+| API Service      | Depends on server | Requires internet |
 
 ## Next Steps
 

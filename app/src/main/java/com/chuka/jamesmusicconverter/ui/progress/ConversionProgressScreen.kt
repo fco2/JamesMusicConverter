@@ -1,13 +1,44 @@
 package com.chuka.jamesmusicconverter.ui.progress
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -33,8 +64,9 @@ fun ConversionProgressScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // Track if we've started a conversion for this URL to prevent stale state navigation
-    var hasStartedConversion by remember(videoUrl) { mutableStateOf(false) }
+    // Track the generation of this screen's conversion to prevent stale state navigation
+    var expectedGeneration by remember(videoUrl) { mutableIntStateOf(0) }
+    var hasNavigated by remember(videoUrl) { mutableStateOf(false) }
 
     // Reset and start conversion when screen is first displayed
     LaunchedEffect(videoUrl) {
@@ -42,8 +74,8 @@ fun ConversionProgressScreen(
         android.util.Log.d("CHUKA_Screen", "URL: $videoUrl")
         android.util.Log.d("CHUKA_Screen", "Current state BEFORE reset: ${viewModel.uiState.value}")
 
-        // Important: Set flag to false FIRST to prevent race condition
-        hasStartedConversion = false
+        // Reset navigation flag for this new URL
+        hasNavigated = false
 
         viewModel.reset() // Clear any previous state
 
@@ -64,36 +96,35 @@ fun ConversionProgressScreen(
             cookiesFromBrowser = cookiesFromBrowser
         )
 
-        // Now it's safe to mark conversion as started
-        hasStartedConversion = true
+        // Track the generation of this conversion
+        expectedGeneration = viewModel.getCurrentGeneration()
 
-        android.util.Log.d("CHUKA_Screen", "hasStartedConversion = true")
-    }
-
-    // Clean up conversion when screen is disposed (user navigates away)
-    DisposableEffect(Unit) {
-        onDispose {
-            android.util.Log.d("CHUKA_Screen", "=== Screen disposed, cancelling conversion ===")
-            // Cancel ongoing conversion when user navigates away
-            viewModel.cancelConversion()
-        }
+        android.util.Log.d("CHUKA_Screen", "Started conversion with generation $expectedGeneration")
     }
 
     // Handle state changes - only navigate on Success, Error, or Cancelled
-    // Only react to states AFTER we've started this conversion
-    LaunchedEffect(uiState, hasStartedConversion) {
+    // Only navigate for states matching this conversion's generation
+    LaunchedEffect(uiState) {
         android.util.Log.d("CHUKA_Screen", "=== Navigation LaunchedEffect triggered ===")
         android.util.Log.d("CHUKA_Screen", "State: $uiState")
-        android.util.Log.d("CHUKA_Screen", "hasStartedConversion: $hasStartedConversion")
+        android.util.Log.d("CHUKA_Screen", "Expected generation: $expectedGeneration")
+        android.util.Log.d("CHUKA_Screen", "Has navigated: $hasNavigated")
 
-        if (!hasStartedConversion) {
-            android.util.Log.d("CHUKA_Screen", "IGNORING state - conversion not started yet")
-            return@LaunchedEffect // Ignore stale states
+        // Prevent multiple navigations for the same conversion
+        if (hasNavigated) {
+            android.util.Log.d("CHUKA_Screen", "IGNORING - Already navigated for this conversion")
+            return@LaunchedEffect
         }
 
         when (val state = uiState) {
             is ConversionUiState.Success -> {
+                // Only navigate if this Success is for our conversion
+                if (state.generation != expectedGeneration) {
+                    android.util.Log.d("CHUKA_Screen", "IGNORING Success - wrong generation (${state.generation} != $expectedGeneration)")
+                    return@LaunchedEffect
+                }
                 android.util.Log.d("CHUKA_Screen", "SUCCESS - Navigating to completed: ${state.result.fileName}")
+                hasNavigated = true
                 onNavigateToCompleted(
                     state.result.videoTitle,
                     state.result.thumbnailUrl,
@@ -104,11 +135,23 @@ fun ConversionProgressScreen(
                 )
             }
             is ConversionUiState.Error -> {
+                // Only navigate if this Error is for our conversion
+                if (state.generation != expectedGeneration) {
+                    android.util.Log.d("CHUKA_Screen", "IGNORING Error - wrong generation (${state.generation} != $expectedGeneration)")
+                    return@LaunchedEffect
+                }
                 android.util.Log.d("CHUKA_Screen", "ERROR - Navigating to error: ${state.message}")
+                hasNavigated = true
                 onNavigateToError(state.message)
             }
             is ConversionUiState.Cancelled -> {
+                // Only navigate if this Cancelled is for our conversion
+                if (state.generation != expectedGeneration) {
+                    android.util.Log.d("CHUKA_Screen", "IGNORING Cancelled - wrong generation (${state.generation} != $expectedGeneration)")
+                    return@LaunchedEffect
+                }
                 android.util.Log.d("CHUKA_Screen", "CANCELLED - Navigating back to home")
+                hasNavigated = true
                 // Show toast and navigate back to home
                 android.widget.Toast.makeText(
                     context,
