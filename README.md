@@ -12,6 +12,9 @@ A fully functional Android application that downloads videos from YouTube and ot
 - **▶️ Built-in Player**: Play MP3 directly from the app using your default music player
 - **📂 File Management**: Open file location, share files with other apps
 - **🎨 Modern UI**: Built with Jetpack Compose and Material 3 with white status bar icons
+- **🎶 Custom Snackbars**: Beautiful snackbar notifications with music icon for all user feedback
+- **🎨 Music-Themed Icon**: Gorgeous blue-to-purple gradient app icon with music notes and sound waves
+- **♻️ Multiple Conversions**: Convert multiple videos consecutively without restarting the app
 - **⚡ Direct URL Support**: Also supports direct video file URLs (.mp4, .webm, etc.)
 
 ## 📸 Screenshots
@@ -20,10 +23,9 @@ A fully functional Android application that downloads videos from YouTube and ot
 
 <table>
   <tr>
-    <td><img src="screenshots/url_input.png" alt="URL Input Screen" width="200"/><br/><b>URL Input</b></td>
-    <td><img src="screenshots/progress.png" alt="Progress Screen" width="200"/><br/><b>Conversion Progress</b></td>
-    <td><img src="screenshots/completed.png" alt="Completed Screen" width="200"/><br/><b>Conversion Complete</b></td>
-    <td><img src="screenshots/notification.png" alt="Notification" width="200"/><br/><b>Notification</b></td>
+    <td><img src="screenshots/Screenshot%202025-10-17%20at%2011.54.15%E2%80%AFPM.png" alt="URL Input Screen" width="200"/><br/><b>URL Input</b></td>
+    <td><img src="screenshots/Screenshot%202025-10-17%20at%2011.55.00%E2%80%AFPM.png" alt="Progress Screen" width="200"/><br/><b>Conversion Progress</b></td>
+    <td><img src="screenshots/Screenshot%202025-10-17%20at%2011.56.02%E2%80%AFPM.png" alt="Completed Screen" width="200"/><br/><b>Conversion Complete</b></td>
   </tr>
 </table>
 
@@ -102,9 +104,11 @@ The app includes 4 main screens:
 - **Coroutines**: Kotlin Flow for async progress tracking
 
 ### UI & UX
-- **Material 3 Components**: TopAppBar, Cards, Buttons, Progress Indicators
+- **Material 3 Components**: TopAppBar, Cards, Buttons, Progress Indicators, Custom Snackbars
 - **Compose BOM**: 2025.08.00
-- **Extended Material Icons**: Additional icon set
+- **Extended Material Icons**: Additional icon set with music note icon
+- **Custom Snackbar System**: Singleton SnackbarController with music icon for all notifications
+- **Music-Themed App Icon**: Vector drawable with gradient background and music notes
 - **Coil**: Image loading library (2.7.0)
 - **Hilt Navigation Compose**: 1.2.0 for ViewModel injection
 - **File Sharing**: AndroidX FileProvider for secure file access
@@ -261,6 +265,10 @@ app/src/main/java/com/chuka/jamesmusicconverter/
 │       ├── AudioExtractor.kt                # Audio file management (Hilt injected)
 │       └── DownloadNotificationService.kt   # Notification handling (Hilt injected)
 ├── ui/
+│   ├── components/
+│   │   ├── SnackbarController.kt           # Global snackbar controller (Singleton)
+│   │   ├── SnackbarViewModel.kt            # ViewModel for snackbar injection
+│   │   └── MusicSnackbar.kt                # Custom snackbar with music icon
 │   ├── urlinput/
 │   │   ├── UrlInputScreen.kt               # URL entry screen
 │   │   └── UrlInputViewModel.kt            # Input validation (@HiltViewModel)
@@ -288,19 +296,48 @@ This app is **fully functional** and production-ready with yt-dlp integration:
 ### What's Working:
 - ✅ YouTube video downloading and MP3 conversion (320kbps)
 - ✅ Support for 1000+ platforms via yt-dlp (Vimeo, TikTok, Instagram, etc.)
-- ✅ Real-time progress tracking (0-100%)
+- ✅ Real-time progress tracking (0-100%) with proper handling of unknown file sizes
 - ✅ Automatic filename using video title
 - ✅ Download completion notifications with tap-to-play
 - ✅ Play, share, and open file location features
 - ✅ Error handling with user-friendly messages
+- ✅ Custom snackbar system with music icon for all user feedback
+- ✅ Beautiful music-themed app icon with gradient background
+- ✅ Multiple consecutive conversions without app restart
+- ✅ Proper conversion cancellation with state cleanup
+- ✅ Generation-based state management preventing race conditions
 - ✅ White status bar icons (works on light/dark themes)
 - ✅ FileProvider for secure file sharing
 
 ### Key Files:
-- `YtDlpDownloader.kt` - Main downloader using yt-dlp library with FFmpeg
+- `YtDlpDownloader.kt` - Main downloader using yt-dlp library with FFmpeg (fixed negative progress)
 - `VideoDownloader.kt` - Smart routing (detects platform URLs vs direct URLs)
-- `ConversionRepository.kt` - Orchestrates the entire conversion flow
+- `ConversionRepository.kt` - Orchestrates the entire conversion flow (preserves CancellationException)
+- `ConversionProgressViewModel.kt` - Generation-based state management for multiple conversions
+- `SnackbarController.kt` - Global snackbar management system
+- `MusicSnackbar.kt` - Custom snackbar with music note icon
 - `DownloadNotificationService.kt` - Handles completion notifications
+- `ic_launcher_foreground.xml` - Music-themed app icon (notes + sound waves)
+- `ic_launcher_background.xml` - Blue-to-purple gradient background
+
+### Recent Improvements (Latest Updates):
+
+#### 🎨 UI/UX Enhancements
+- **Custom Snackbar System**: Replaced all Android Toasts with beautiful Material 3 snackbars featuring a music note icon
+- **Music-Themed App Icon**:
+  - Foreground: White music notes with sound waves on transparent background
+  - Background: Gorgeous blue (#2575FC) to purple (#6A11CB) gradient with subtle music staff lines
+  - Professional, modern design that stands out
+
+#### 🔧 Technical Improvements
+- **Generation-Based State Management**: Each conversion is tagged with a generation number, preventing race conditions when starting multiple conversions consecutively
+- **Fixed Negative Progress**: yt-dlp reports -1.0% when file size is unknown; now displays "Downloading audio..." without percentage until known
+- **Proper Cancellation Handling**:
+  - CancellationException is preserved through the repository layer
+  - Correct generation tracking prevents old cancelled conversions from interfering with new ones
+  - Cancel button always appears during active conversions
+- **Multiple Consecutive Conversions**: Users can convert multiple videos back-to-back without restarting the app
+- **Race Condition Prevention**: Old coroutine cleanup no longer interferes with new conversion jobs
 
 ### Output:
 - **Format**: MP3 (320kbps, best quality)

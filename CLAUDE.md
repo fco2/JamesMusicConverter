@@ -61,9 +61,11 @@ JamesMusicConverter is an Android application that converts video URLs (like You
 
 ### Source Structure
 - **Main source**: `app/src/main/java/com/chuka/jamesmusicconverter/`
-- **Navigation**: `navigation/` - Contains NavDisplay system, Routes, and NavGraph
+- **Navigation**: `navigation/` - Contains NavDisplay system, Routes, and NavGraph with SnackbarHost
 - **UI Screens**: `ui/urlinput/`, `ui/progress/`, `ui/completed/`, `ui/error/`
+- **UI Components**: `ui/components/` - Custom snackbar system (SnackbarController, MusicSnackbar)
 - **Theme**: `ui/theme/` - Material 3 theming (Color.kt, Type.kt, Theme.kt)
+- **App Icon**: `res/drawable/` - Music-themed vector drawables (ic_launcher_foreground.xml, ic_launcher_background.xml)
 - **Unit tests**: `app/src/test/java/com/chuka/jamesmusicconverter/`
 - **Instrumented tests**: `app/src/androidTest/java/com/chuka/jamesmusicconverter/`
 
@@ -167,6 +169,31 @@ The app is **production-ready** with real YouTube/platform video downloading and
    - `isAppearanceLightStatusBars = false` for white icons
    - Transparent status bar with edge-to-edge display
 
+8. **Custom Snackbar System** (`ui/components/`)
+   - **SnackbarController**: Singleton service for global snackbar management
+   - **MusicSnackbar**: Custom Material 3 snackbar with music note icon
+   - **SnackbarViewModel**: Hilt-injected ViewModel providing controller access
+   - Replaces all Android Toasts with elegant Material 3 snackbars
+   - Consistent user feedback across all file operations and conversions
+
+9. **Music-Themed App Icon** (`res/drawable/`)
+   - **ic_launcher_foreground.xml**: White music notes with sound waves
+   - **ic_launcher_background.xml**: Blue-to-purple gradient (#2575FC → #6A11CB)
+   - Subtle music staff lines for thematic detail
+   - Professional, modern vector design
+
+10. **State Management Improvements** (`ConversionProgressViewModel.kt`)
+    - **Generation-based tracking**: Each conversion tagged with unique generation number
+    - **Race condition prevention**: Old cancelled conversions can't interfere with new ones
+    - **Proper cancellation**: CancellationException preserved through repository layer
+    - **Multiple conversions**: Users can convert videos consecutively without app restart
+    - **Cancel button persistence**: Always appears during active conversions (no disappearing bug)
+
+11. **Progress Display Fix** (`YtDlpDownloader.kt`)
+    - Handles yt-dlp's -1.0% progress when file size is unknown
+    - Shows "Downloading audio..." (no percentage) until size is determined
+    - Prevents confusing negative percentages from appearing to users
+
 #### Architecture Pattern:
 ```
 UI Layer (Compose Screens + ViewModels)
@@ -179,13 +206,20 @@ File System + Notifications
 ```
 
 #### Key Files:
-- `YtDlpDownloader.kt` - Main downloader with FFmpeg integration (407 lines)
-- `VideoDownloader.kt` - Smart URL routing logic (221 lines)
-- `ConversionRepository.kt` - Orchestrates conversion flow with progress (116 lines)
-- `DownloadNotificationService.kt` - Handles completion notifications (124 lines)
+- `YtDlpDownloader.kt` - Main downloader with FFmpeg integration (fixed negative progress display)
+- `VideoDownloader.kt` - Smart URL routing logic
+- `ConversionRepository.kt` - Orchestrates conversion flow (preserves CancellationException)
+- `ConversionProgressViewModel.kt` - Generation-based state management for multiple conversions
+- `DownloadNotificationService.kt` - Handles completion notifications
+- `FileActionHandler.kt` - File operations (play/share/open) using SnackbarController
+- `SnackbarController.kt` - Global snackbar management singleton
+- `MusicSnackbar.kt` - Custom snackbar with music note icon
+- `SnackbarViewModel.kt` - Hilt ViewModel for snackbar injection
 - `ConversionCompletedViewModel.kt` - Play/share/open file actions
 - `MainActivity.kt` - Status bar configuration (white icons)
 - `AudioExtractor.kt` - Audio file management (preserves original filename)
+- `ic_launcher_foreground.xml` - App icon foreground (music notes + sound waves)
+- `ic_launcher_background.xml` - App icon background (blue-purple gradient)
 
 #### File Output:
 - **Format**: MP3 (320kbps, best quality)
@@ -223,9 +257,29 @@ Expected flow:
 
 4. **Deprecated APIs** (warnings only, not errors)
    - `window.statusBarColor` - Still works, just deprecated
-   - `Divider` → use `HorizontalDivider` in future
    - `Icons.Filled.ArrowBack` → use `Icons.AutoMirrored.Filled.ArrowBack`
-   - `LocalClipboardManager` → use `LocalClipboard` in future
+
+### Recently Fixed Issues ✅
+
+1. ~~**Negative Progress Display**~~ - FIXED
+   - Was showing "Downloading audio... -1.0%" when yt-dlp didn't know file size
+   - Now shows "Downloading audio..." without percentage until size is known
+
+2. ~~**Multiple Conversion Bug**~~ - FIXED
+   - Users had to force-close app between conversions
+   - Now uses generation-based state tracking to handle consecutive conversions
+
+3. ~~**Cancellation Issues**~~ - FIXED
+   - Cancelled conversions would show error screen instead of home screen
+   - Now properly preserves CancellationException and shows snackbar feedback
+
+4. ~~**Missing Cancel Button**~~ - FIXED
+   - Cancel button would disappear after cancelling first conversion
+   - Now prevents old coroutine cleanup from interfering with new jobs
+
+5. ~~**Toast Messages**~~ - REPLACED
+   - Used basic Android Toasts for user feedback
+   - Now uses elegant Material 3 snackbars with music icon throughout
 
 ### Future Enhancement Ideas
 - Add download history with SQLite/Room
