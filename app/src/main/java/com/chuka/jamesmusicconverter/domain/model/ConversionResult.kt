@@ -8,5 +8,6 @@ data class ConversionResult(
     val thumbnailUrl: String?,
     val fileName: String,
     val fileSize: Long,
-    val filePath: String
+    val filePath: String,
+    val durationMillis: Long = 0 // Duration in milliseconds
 )

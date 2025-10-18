@@ -24,43 +24,102 @@ fun ConversionProgressScreen(
     username: String? = null,
     password: String? = null,
     cookiesFromBrowser: String? = null,
-    onNavigateToCompleted: (String, String?, String, Long, String) -> Unit,
+    onNavigateToCompleted: (String, String?, String, Long, String, Long) -> Unit,
     onNavigateToError: (String) -> Unit,
+    onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ConversionProgressViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // Track if we've started a conversion for this URL to prevent stale state navigation
+    var hasStartedConversion by remember(videoUrl) { mutableStateOf(false) }
 
     // Reset and start conversion when screen is first displayed
     LaunchedEffect(videoUrl) {
+        android.util.Log.d("CHUKA_Screen", "=== LaunchedEffect(videoUrl) triggered ===")
+        android.util.Log.d("CHUKA_Screen", "URL: $videoUrl")
+        android.util.Log.d("CHUKA_Screen", "Current state BEFORE reset: ${viewModel.uiState.value}")
+
+        // Important: Set flag to false FIRST to prevent race condition
+        hasStartedConversion = false
+
         viewModel.reset() // Clear any previous state
+
+        android.util.Log.d("CHUKA_Screen", "State AFTER reset: ${viewModel.uiState.value}")
+
+        // Wait for state to stabilize by checking it's actually Idle
+        // This ensures the Navigation LaunchedEffect won't trigger with stale Success state
+        while (viewModel.uiState.value !is ConversionUiState.Idle) {
+            kotlinx.coroutines.delay(10)
+        }
+
+        android.util.Log.d("CHUKA_Screen", "State confirmed Idle, starting conversion...")
+
         viewModel.startConversion(
             videoUrl = videoUrl,
             username = username,
             password = password,
             cookiesFromBrowser = cookiesFromBrowser
         )
+
+        // Now it's safe to mark conversion as started
+        hasStartedConversion = true
+
+        android.util.Log.d("CHUKA_Screen", "hasStartedConversion = true")
+    }
+
+    // Clean up conversion when screen is disposed (user navigates away)
+    DisposableEffect(Unit) {
+        onDispose {
+            android.util.Log.d("CHUKA_Screen", "=== Screen disposed, cancelling conversion ===")
+            // Cancel ongoing conversion when user navigates away
+            viewModel.cancelConversion()
+        }
     }
 
     // Handle state changes - only navigate on Success, Error, or Cancelled
-    LaunchedEffect(uiState) {
+    // Only react to states AFTER we've started this conversion
+    LaunchedEffect(uiState, hasStartedConversion) {
+        android.util.Log.d("CHUKA_Screen", "=== Navigation LaunchedEffect triggered ===")
+        android.util.Log.d("CHUKA_Screen", "State: $uiState")
+        android.util.Log.d("CHUKA_Screen", "hasStartedConversion: $hasStartedConversion")
+
+        if (!hasStartedConversion) {
+            android.util.Log.d("CHUKA_Screen", "IGNORING state - conversion not started yet")
+            return@LaunchedEffect // Ignore stale states
+        }
+
         when (val state = uiState) {
             is ConversionUiState.Success -> {
+                android.util.Log.d("CHUKA_Screen", "SUCCESS - Navigating to completed: ${state.result.fileName}")
                 onNavigateToCompleted(
                     state.result.videoTitle,
                     state.result.thumbnailUrl,
                     state.result.fileName,
                     state.result.fileSize,
-                    state.result.filePath
+                    state.result.filePath,
+                    state.result.durationMillis
                 )
             }
             is ConversionUiState.Error -> {
+                android.util.Log.d("CHUKA_Screen", "ERROR - Navigating to error: ${state.message}")
                 onNavigateToError(state.message)
             }
             is ConversionUiState.Cancelled -> {
-                onNavigateToError(state.message)
+                android.util.Log.d("CHUKA_Screen", "CANCELLED - Navigating back to home")
+                // Show toast and navigate back to home
+                android.widget.Toast.makeText(
+                    context,
+                    "Conversion cancelled",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                onNavigateBack()
             }
-            else -> { /* No-op */ }
+            else -> {
+                android.util.Log.d("CHUKA_Screen", "State is ${state::class.simpleName} - no navigation")
+            }
         }
     }
 

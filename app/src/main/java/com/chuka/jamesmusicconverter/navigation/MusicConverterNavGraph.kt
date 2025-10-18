@@ -17,8 +17,13 @@ fun MusicConverterNavGraph() {
     NavDisplay(navBackStack = navBackStack) { destination, backStack ->
         when (destination) {
             is UrlInputRoute -> {
+                android.util.Log.d("CHUKA_NavGraph", "=== Showing UrlInputScreen ===")
+
                 UrlInputScreen(
                     onNavigateToProgress = { videoUrl, username, password, browser ->
+                        android.util.Log.d("CHUKA_NavGraph", "=== onNavigateToProgress callback ===")
+                        android.util.Log.d("CHUKA_NavGraph", "Navigating to progress with URL: $videoUrl")
+
                         backStack.navigate(ConversionProgressRoute(
                             videoUrl = videoUrl,
                             username = username,
@@ -30,12 +35,18 @@ fun MusicConverterNavGraph() {
             }
 
             is ConversionProgressRoute -> {
+                android.util.Log.d("CHUKA_NavGraph", "=== Showing ConversionProgressScreen ===")
+                android.util.Log.d("CHUKA_NavGraph", "URL: ${destination.videoUrl}")
+
                 ConversionProgressScreen(
                     videoUrl = destination.videoUrl,
                     username = destination.username,
                     password = destination.password,
                     cookiesFromBrowser = destination.cookiesFromBrowser,
-                    onNavigateToCompleted = { videoTitle, thumbnailUrl, fileName, fileSize, filePath ->
+                    onNavigateToCompleted = { videoTitle, thumbnailUrl, fileName, fileSize, filePath, durationMillis ->
+                        android.util.Log.d("CHUKA_NavGraph", "=== onNavigateToCompleted callback ===")
+                        android.util.Log.d("CHUKA_NavGraph", "Navigating to completed: $fileName")
+
                         // Replace current screen with completed screen
                         backStack.replace(
                             ConversionCompletedRoute(
@@ -43,24 +54,41 @@ fun MusicConverterNavGraph() {
                                 thumbnailUrl = thumbnailUrl,
                                 fileName = fileName,
                                 fileSize = fileSize,
-                                filePath = filePath
+                                filePath = filePath,
+                                durationMillis = durationMillis
                             )
                         )
                     },
                     onNavigateToError = { errorMessage ->
+                        android.util.Log.d("CHUKA_NavGraph", "=== onNavigateToError callback ===")
+                        android.util.Log.d("CHUKA_NavGraph", "Error: $errorMessage")
+
                         backStack.replace(ConversionErrorRoute(errorMessage))
+                    },
+                    onNavigateBack = {
+                        android.util.Log.d("CHUKA_NavGraph", "=== onNavigateBack callback (cancel) ===")
+
+                        // Clear stack and go back to input screen (for cancellation)
+                        backStack.clearAndNavigate(UrlInputRoute)
                     }
                 )
             }
 
             is ConversionCompletedRoute -> {
+                android.util.Log.d("CHUKA_NavGraph", "=== Showing ConversionCompletedScreen ===")
+                android.util.Log.d("CHUKA_NavGraph", "File: ${destination.fileName}")
+
                 ConversionCompletedScreen(
                     videoTitle = destination.videoTitle,
                     thumbnailUrl = destination.thumbnailUrl,
                     fileName = destination.fileName,
                     fileSize = destination.fileSize,
                     filePath = destination.filePath,
+                    durationMillis = destination.durationMillis,
                     onNavigateBack = {
+                        android.util.Log.d("CHUKA_NavGraph", "=== onNavigateBack from Completed ===")
+                        android.util.Log.d("CHUKA_NavGraph", "Clearing stack and going to UrlInputRoute")
+
                         // Clear stack and go back to input screen
                         backStack.clearAndNavigate(UrlInputRoute)
                     }

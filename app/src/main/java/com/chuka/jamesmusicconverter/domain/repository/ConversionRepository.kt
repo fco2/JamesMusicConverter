@@ -29,8 +29,10 @@ class ConversionRepositoryImpl(
     private val notificationService: DownloadNotificationService
 ) : ConversionRepository {
 
-    // Store the last conversion result
-    private var lastConversionResult: ConversionResult? = null
+    // Store conversion results by URL to prevent caching across different conversions
+    // Use synchronized access to prevent race conditions
+    private val conversionResults = mutableMapOf<String, ConversionResult>()
+    private val lock = Any()
 
     /**
      * Converts video to MP3 by downloading and extracting audio
@@ -41,6 +43,16 @@ class ConversionRepositoryImpl(
         password: String?,
         cookiesFromBrowser: String?
     ): Flow<ConversionProgress> = flow {
+        android.util.Log.d("CHUKA_Repository", "=== convertVideoToMp3 called ===")
+        android.util.Log.d("CHUKA_Repository", "URL: $videoUrl")
+
+        synchronized(lock) {
+            android.util.Log.d("CHUKA_Repository", "Cached results before clear: ${conversionResults.keys}")
+            // Clear any previous result for this URL to ensure fresh conversion
+            conversionResults.remove(videoUrl)
+            android.util.Log.d("CHUKA_Repository", "Cached results after clear: ${conversionResults.keys}")
+        }
+
         try {
             var downloadedFilePath: String? = null
             var videoTitle: String? = null
@@ -84,13 +96,20 @@ class ConversionRepositoryImpl(
                     // Store the result when extraction is complete
                     if (extractionProgress.outputFilePath != null) {
                         val outputFile = File(extractionProgress.outputFilePath)
-                        lastConversionResult = ConversionResult(
+                        val result = ConversionResult(
                             videoTitle = videoTitle ?: extractTitleFromUrl(videoUrl),
                             thumbnailUrl = thumbnailUrl,
                             fileName = outputFile.name,
                             fileSize = extractionProgress.fileSize,
-                            filePath = extractionProgress.outputFilePath
+                            filePath = extractionProgress.outputFilePath,
+                            durationMillis = extractionProgress.durationMillis
                         )
+
+                        // Store result with synchronization to prevent race conditions
+                        synchronized(lock) {
+                            android.util.Log.d("CHUKA_Repository", "Storing result for URL: $videoUrl -> ${result.fileName} (${result.durationMillis}ms)")
+                            conversionResults[videoUrl] = result
+                        }
 
                         // Show notification when conversion is complete
                         notificationService.showDownloadCompletedNotification(
@@ -112,13 +131,24 @@ class ConversionRepositoryImpl(
      * Gets the final conversion result
      */
     override suspend fun getConversionResult(videoUrl: String): Result<ConversionResult> {
+        android.util.Log.d("CHUKA_Repository", "=== getConversionResult called ===")
+        android.util.Log.d("CHUKA_Repository", "URL: $videoUrl")
+
         return try {
-            if (lastConversionResult != null) {
-                Result.success(lastConversionResult!!)
+            val result = synchronized(lock) {
+                android.util.Log.d("CHUKA_Repository", "All cached results: ${conversionResults.keys}")
+                conversionResults[videoUrl]
+            }
+
+            if (result != null) {
+                android.util.Log.d("CHUKA_Repository", "Found result: ${result.fileName} for URL: $videoUrl")
+                Result.success(result)
             } else {
+                android.util.Log.e("CHUKA_Repository", "No result found for URL: $videoUrl")
                 Result.failure(Exception("No conversion result available"))
             }
         } catch (e: Exception) {
+            android.util.Log.e("CHUKA_Repository", "Exception: ${e.message}")
             Result.failure(e)
         }
     }

@@ -41,19 +41,29 @@ class ConversionProgressViewModel @Inject constructor(
         password: String? = null,
         cookiesFromBrowser: String? = null
     ) {
-        // Cancel any ongoing conversion
-        cancelConversion()
+        android.util.Log.d("CHUKA_ViewModel", "=== startConversion called ===")
+        android.util.Log.d("CHUKA_ViewModel", "URL: $videoUrl")
+        android.util.Log.d("CHUKA_ViewModel", "Current state: ${_uiState.value}")
+
+        // Silently cancel any ongoing conversion without setting Cancelled state
+        conversionJob?.cancel()
+        conversionJob = null
 
         // Prevent re-triggering conversion for the same URL if already converting
         if (currentConversionUrl == videoUrl &&
             _uiState.value is ConversionUiState.Converting) {
+            android.util.Log.d("CHUKA_ViewModel", "SKIPPING - Same URL already converting")
             return
         }
 
         currentConversionUrl = videoUrl
+        _uiState.value = ConversionUiState.Idle
+
+        android.util.Log.d("CHUKA_ViewModel", "Starting coroutine for conversion...")
 
         conversionJob = viewModelScope.launch {
             try {
+                android.util.Log.d("CHUKA_ViewModel", "Calling repository.convertVideoToMp3...")
                 // Collect progress updates
                 repository.convertVideoToMp3(
                     videoUrl = videoUrl,
@@ -61,28 +71,35 @@ class ConversionProgressViewModel @Inject constructor(
                     password = password,
                     cookiesFromBrowser = cookiesFromBrowser
                 ).collect { progress ->
+                    //android.util.Log.d("CHUKA_ViewModel", "Progress: ${progress.percentage * 100}% - ${progress.statusMessage}")
                     _uiState.value = ConversionUiState.Converting(progress, isCancellable = true)
                 }
 
+                android.util.Log.d("CHUKA_ViewModel", "Flow completed, getting final result...")
                 // Get final result
                 val result = repository.getConversionResult(videoUrl)
                 result.fold(
                     onSuccess = { conversionResult ->
+                        android.util.Log.d("CHUKA_ViewModel", "SUCCESS: ${conversionResult.fileName}")
                         _uiState.value = ConversionUiState.Success(conversionResult)
                         conversionJob = null
                     },
                     onFailure = { exception ->
+                        android.util.Log.e("CHUKA_ViewModel", "ERROR: ${exception.message}")
                         _uiState.value = ConversionUiState.Error(
                             exception.message ?: "An error occurred during conversion"
                         )
                         conversionJob = null
                     }
                 )
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                // Flow was cancelled by user
-                _uiState.value = ConversionUiState.Cancelled("Conversion cancelled by user")
+            } catch (_: kotlinx.coroutines.CancellationException) {
+                // Flow was cancelled - this is normal when navigating away
+                // Only update state if we're still in Converting state
+                if (_uiState.value is ConversionUiState.Converting) {
+                    _uiState.value = ConversionUiState.Cancelled("Conversion cancelled")
+                }
                 conversionJob = null
-                throw e  // Re-throw to properly cancel the coroutine
+                // Don't re-throw - let it cancel gracefully
             } catch (e: Exception) {
                 _uiState.value = ConversionUiState.Error(
                     e.message ?: "An error occurred during conversion"
@@ -96,11 +113,16 @@ class ConversionProgressViewModel @Inject constructor(
      * Cancels the ongoing conversion
      */
     fun cancelConversion() {
-        conversionJob?.cancel()
-        conversionJob = null
+        try {
+            conversionJob?.cancel()
+            conversionJob = null
 
-        if (_uiState.value is ConversionUiState.Converting) {
-            _uiState.value = ConversionUiState.Cancelled()
+            if (_uiState.value is ConversionUiState.Converting) {
+                _uiState.value = ConversionUiState.Cancelled()
+            }
+        } catch (_: Exception) {
+            // Ignore cancellation errors - just ensure cleanup
+            conversionJob = null
         }
     }
 
@@ -115,9 +137,16 @@ class ConversionProgressViewModel @Inject constructor(
      * Resets the ViewModel state for a fresh conversion
      */
     fun reset() {
-        cancelConversion()  // Cancel any active conversion
+        android.util.Log.d("CHUKA_ViewModel", "=== reset() called ===")
+        android.util.Log.d("CHUKA_ViewModel", "State before reset: ${_uiState.value}")
+
+        // Silently cancel any active conversion without triggering Cancelled state
+        conversionJob?.cancel()
+        conversionJob = null
         currentConversionUrl = null
         _uiState.value = ConversionUiState.Idle
+
+        android.util.Log.d("CHUKA_ViewModel", "State after reset: ${_uiState.value}")
     }
 
     /**

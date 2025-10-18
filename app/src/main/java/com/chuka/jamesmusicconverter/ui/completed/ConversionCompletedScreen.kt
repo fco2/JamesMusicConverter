@@ -27,6 +27,7 @@ fun ConversionCompletedScreen(
     fileName: String,
     fileSize: Long,
     filePath: String,
+    durationMillis: Long = 0,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ConversionCompletedViewModel = hiltViewModel()
@@ -192,6 +193,25 @@ fun ConversionCompletedScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+
+                    // Duration
+                    if (durationMillis > 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Duration:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = viewModel.formatDuration(durationMillis),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }

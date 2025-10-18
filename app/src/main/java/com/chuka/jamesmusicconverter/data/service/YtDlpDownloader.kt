@@ -163,7 +163,7 @@ class YtDlpDownloader(private val context: Context) {
 
             // Execute download with progress tracking
             val response = YoutubeDL.getInstance().execute(request) { progress, _, line ->
-                Log.d(TAG, "Progress: $progress% - $line")
+                //Log.d(TAG, "Progress: $progress% - $line")
 
                 // Send progress updates (0.1 to 0.9 range)
                 val normalizedProgress = 0.1f + (progress / 100f * 0.8f)
@@ -310,7 +310,7 @@ class YtDlpDownloader(private val context: Context) {
 
             // Execute download with progress tracking
             val response = YoutubeDL.getInstance().execute(request) { progress, _, line ->
-                Log.d(TAG, "Audio progress: $progress% - $line")
+                //Log.d(TAG, "Audio progress: $progress% - $line")
 
                 val normalizedProgress = 0.1f + (progress / 100f * 0.9f)
                 trySend(DownloadProgress(normalizedProgress, "Downloading audio... $progress%"))

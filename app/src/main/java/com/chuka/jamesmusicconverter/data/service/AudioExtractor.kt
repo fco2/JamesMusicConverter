@@ -1,6 +1,7 @@
 package com.chuka.jamesmusicconverter.data.service
 
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.os.Environment
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +20,30 @@ class AudioExtractor(private val context: Context) {
 
     private val TAG = "AudioExtractor"
     private val mediaCodecExtractor = MediaCodecAudioExtractor(context)
+
+    /**
+     * Extracts audio duration from a media file using MediaMetadataRetriever
+     * @param filePath Path to the audio/video file
+     * @return Duration in milliseconds, or 0 if unable to extract
+     */
+    private fun extractDuration(filePath: String): Long {
+        var retriever: MediaMetadataRetriever? = null
+        return try {
+            retriever = MediaMetadataRetriever()
+            retriever.setDataSource(filePath)
+            val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+            durationStr?.toLongOrNull() ?: 0L
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to extract duration from $filePath: ${e.message}")
+            0L
+        } finally {
+            try {
+                retriever?.release()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to release MediaMetadataRetriever: ${e.message}")
+            }
+        }
+    }
 
     /**
      * Handles audio extraction/conversion (optimized for yt-dlp output)
@@ -80,11 +105,13 @@ class AudioExtractor(private val context: Context) {
             // Check if source and output are the same
             if (sourceFile.canonicalPath == outputFile.canonicalPath) {
                 Log.d(TAG, "File is already in the correct location: ${outputFile.absolutePath}")
+                val duration = extractDuration(outputFile.absolutePath)
                 emit(ExtractionProgress(
                     1f,
                     "Audio ready",
                     outputFile.absolutePath,
-                    outputFile.length()
+                    outputFile.length(),
+                    duration
                 ))
                 return@flow
             }
@@ -134,14 +161,18 @@ class AudioExtractor(private val context: Context) {
                 throw Exception("Output file is missing or empty after processing")
             }
 
+            // Extract duration from the final MP3 file
+            val duration = extractDuration(outputFile.absolutePath)
             val fileSizeMB = outputFile.length() / (1024.0 * 1024.0)
-            Log.d(TAG, "Audio file ready: ${outputFile.absolutePath} (${String.format("%.2f", fileSizeMB)} MB)")
+            val durationSec = duration / 1000.0
+            Log.d(TAG, "Audio file ready: ${outputFile.absolutePath} (${String.format("%.2f", fileSizeMB)} MB, ${String.format("%.1f", durationSec)}s)")
 
             emit(ExtractionProgress(
                 1f,
                 "Audio ready",
                 outputFile.absolutePath,
-                outputFile.length()
+                outputFile.length(),
+                duration
             ))
 
         } catch (e: Exception) {
@@ -198,5 +229,6 @@ data class ExtractionProgress(
     val progress: Float,
     val message: String,
     val outputFilePath: String? = null,
-    val fileSize: Long = 0
+    val fileSize: Long = 0,
+    val durationMillis: Long = 0 // Duration in milliseconds
 )

@@ -20,15 +20,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -42,22 +44,22 @@ fun UrlInputScreen(
     modifier: Modifier = Modifier,
     viewModel: UrlInputViewModel = hiltViewModel()
 ) {
-    var urlTextFieldValue by remember { mutableStateOf(TextFieldValue("")) }
-    var isError by remember { mutableStateOf(false) }
+    val uiState by viewModel.uiState.collectAsState()
     var showPermissionDialog by remember { mutableStateOf(false) }
-    var pendingUrl by remember { mutableStateOf<String?>(null) }
+    var pendingAuthData by remember { mutableStateOf<Pair<String, AuthData?>?>(null) }
 
-    // Authentication fields
-    var showAdvancedOptions by remember { mutableStateOf(false) }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
-    var selectedBrowser by remember { mutableStateOf("") }
-    var useBrowserCookies by remember { mutableStateOf(false) }
-
-    val clipboardManager = LocalClipboardManager.current
+    val clipboardManager = LocalClipboard.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // Clear URL when screen is first shown (e.g., after completing a conversion)
+    LaunchedEffect(Unit) {
+        // Only clear if there's content (to avoid clearing on first app launch)
+        if (uiState.urlTextFieldValue.text.isNotBlank()) {
+            viewModel.clearUrl()
+        }
+    }
 
     // Permission launcher
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -66,12 +68,9 @@ fun UrlInputScreen(
         val allGranted = permissions.values.all { it }
         if (allGranted) {
             // Permissions granted, proceed with conversion
-            pendingUrl?.let { url ->
-                val user = if (username.isNotBlank()) username else null
-                val pass = if (password.isNotBlank()) password else null
-                val browser = if (useBrowserCookies && selectedBrowser.isNotBlank()) selectedBrowser else null
-                onNavigateToProgress(url, user, pass, browser)
-                pendingUrl = null
+            pendingAuthData?.let { (url, authData) ->
+                onNavigateToProgress(url, authData?.username, authData?.password, authData?.browser)
+                pendingAuthData = null
             }
         } else {
             // Permissions denied
@@ -80,32 +79,32 @@ fun UrlInputScreen(
     }
 
     // Function to check and request permissions
-    fun checkAndRequestPermissions(url: String, username: String?, password: String?, browser: String?) {
+    fun checkAndRequestPermissions(url: String, authData: AuthData?) {
         val permissionsToRequest = mutableListOf<String>()
 
         // For Android 13+ (API 33+), need INTERNET only (INTERNET is not runtime permission)
         // For Android 10-12 (API 29-32), need READ_EXTERNAL_STORAGE
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // Android 13+: We're using app-specific directories, no permissions needed
-            onNavigateToProgress(url, username, password, browser)
+            onNavigateToProgress(url, authData?.username, authData?.password, authData?.browser)
             return
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Android 10-12: Check READ_EXTERNAL_STORAGE
-            if (ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.READ_EXTERNAL_STORAGE
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
-            }
+        }
+
+        // Android 10-12: Check READ_EXTERNAL_STORAGE
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
 
         if (permissionsToRequest.isEmpty()) {
             // All permissions already granted
-            onNavigateToProgress(url, username, password, browser)
+            onNavigateToProgress(url, authData?.username, authData?.password, authData?.browser)
         } else {
             // Request permissions
-            pendingUrl = url
+            pendingAuthData = Pair(url, authData)
             permissionLauncher.launch(permissionsToRequest.toTypedArray())
         }
     }
@@ -182,27 +181,27 @@ fun UrlInputScreen(
 
             // URL Input Field
             OutlinedTextField(
-                value = urlTextFieldValue,
-                onValueChange = {
-                    urlTextFieldValue = it
-                    isError = false
-                },
+                value = uiState.urlTextFieldValue,
+                onValueChange = viewModel::updateUrl,
                 label = { Text("Video URL") },
                 placeholder = { Text("https://www.youtube.com/watch?v=...") },
                 modifier = Modifier.fillMaxWidth(),
-                isError = isError,
-                supportingText = if (isError) {
+                isError = uiState.isError,
+                supportingText = if (uiState.isError) {
                     { Text("Please enter a valid URL") }
                 } else null,
                 trailingIcon = {
                     IconButton(
                         onClick = {
-                            clipboardManager.getText()?.text?.let { pastedText ->
-                                urlTextFieldValue = TextFieldValue(
-                                    text = pastedText,
-                                    selection = TextRange(pastedText.length)
-                                )
-                                isError = false
+                            scope.launch {
+                                clipboardManager.getClipEntry()?.clipData?.let { clipData ->
+                                    if (clipData.itemCount > 0) {
+                                        val pastedText = clipData.getItemAt(0)?.text?.toString()
+                                        if (pastedText != null) {
+                                            viewModel.pasteFromClipboard(pastedText)
+                                        }
+                                    }
+                                }
                             }
                         }
                     ) {
@@ -235,7 +234,7 @@ fun UrlInputScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { showAdvancedOptions = !showAdvancedOptions },
+                            .clickable { viewModel.toggleAdvancedOptions() },
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -245,13 +244,13 @@ fun UrlInputScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Icon(
-                            imageVector = if (showAdvancedOptions) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = if (showAdvancedOptions) "Collapse" else "Expand",
+                            imageVector = if (uiState.showAdvancedOptions) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (uiState.showAdvancedOptions) "Collapse" else "Expand",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
-                    if (showAdvancedOptions) {
+                    if (uiState.showAdvancedOptions) {
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
@@ -264,8 +263,8 @@ fun UrlInputScreen(
 
                         // Username field
                         OutlinedTextField(
-                            value = username,
-                            onValueChange = { username = it },
+                            value = uiState.username,
+                            onValueChange = viewModel::updateUsername,
                             label = { Text("Username (optional)") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
@@ -275,17 +274,17 @@ fun UrlInputScreen(
 
                         // Password field
                         OutlinedTextField(
-                            value = password,
-                            onValueChange = { password = it },
+                            value = uiState.password,
+                            onValueChange = viewModel::updatePassword,
                             label = { Text("Password (optional)") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
-                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            visualTransformation = if (uiState.passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             trailingIcon = {
-                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                IconButton(onClick = viewModel::togglePasswordVisibility) {
                                     Icon(
-                                        imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                        contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                        imageVector = if (uiState.passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                        contentDescription = if (uiState.passwordVisible) "Hide password" else "Show password"
                                     )
                                 }
                             }
@@ -311,8 +310,8 @@ fun UrlInputScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Checkbox(
-                                checked = useBrowserCookies,
-                                onCheckedChange = { useBrowserCookies = it }
+                                checked = uiState.useBrowserCookies,
+                                onCheckedChange = viewModel::updateUseBrowserCookies
                             )
                             Text(
                                 text = "Extract cookies from browser",
@@ -320,11 +319,11 @@ fun UrlInputScreen(
                             )
                         }
 
-                        if (useBrowserCookies) {
+                        if (uiState.useBrowserCookies) {
                             // Browser selection
                             OutlinedTextField(
-                                value = selectedBrowser,
-                                onValueChange = { selectedBrowser = it },
+                                value = uiState.selectedBrowser,
+                                onValueChange = viewModel::updateSelectedBrowser,
                                 label = { Text("Browser name") },
                                 placeholder = { Text("chrome, firefox, edge, safari") },
                                 modifier = Modifier.fillMaxWidth(),
@@ -338,20 +337,15 @@ fun UrlInputScreen(
             // Convert Button
             Button(
                 onClick = {
-                    if (urlTextFieldValue.text.isBlank() || !viewModel.isValidUrl(urlTextFieldValue.text)) {
-                        isError = true
-                    } else {
-                        keyboardController?.hide()
-                        val user = if (username.isNotBlank()) username else null
-                        val pass = if (password.isNotBlank()) password else null
-                        val browser = if (useBrowserCookies && selectedBrowser.isNotBlank()) selectedBrowser else null
-                        checkAndRequestPermissions(urlTextFieldValue.text.trim(), user, pass, browser)
+                    keyboardController?.hide()
+                    viewModel.validateAndGetAuthData()?.let { (url, authData, _) ->
+                        checkAndRequestPermissions(url, authData)
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                enabled = urlTextFieldValue.text.isNotBlank()
+                enabled = uiState.urlTextFieldValue.text.isNotBlank()
             ) {
                 Text(
                     text = "Convert to MP3",
