@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
 import javax.inject.Inject
 
+private const val PLAY_DEBOUNCE_DELAY = 1000L // 1 second
 /**
  * ViewModel for the Conversion Completed screen.
  * Context-independent - delegates all context-dependent operations to FileActionHandler.
@@ -15,11 +16,19 @@ class ConversionCompletedViewModel @Inject constructor(
     private val fileActionHandler: FileActionHandler
 ) : ViewModel() {
 
+    // Debounce mechanism to prevent rapid successive play calls
+    private var lastPlayTime = 0L
+
     /**
      * Play the media file using the default player (video or audio)
+     * Includes debounce to prevent flickering from rapid clicks
      */
     fun playFile(filePath: String, isVideo: Boolean = false) {
-        fileActionHandler.playFile(filePath, isVideo)
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastPlayTime > PLAY_DEBOUNCE_DELAY) {
+            lastPlayTime = currentTime
+            fileActionHandler.playFile(filePath, isVideo)
+        }
     }
 
     /**

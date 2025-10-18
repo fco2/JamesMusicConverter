@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
@@ -197,7 +198,12 @@ fun UrlInputScreen(
                             viewModel.updateDownloadMode(DownloadMode.AUDIO)
                         }
                     },
-                    label = { Text("Audio (MP3)") },
+                    label = {
+                        Text(
+                            "Audio (MP3)",
+                            fontWeight = if (uiState.downloadMode == DownloadMode.AUDIO) FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.MusicNote,
@@ -205,7 +211,15 @@ fun UrlInputScreen(
                             modifier = Modifier.size(18.dp)
                         )
                     },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    border = if (uiState.downloadMode == DownloadMode.AUDIO) {
+                        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                    } else null,
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                 )
 
                 // Video Mode Button
@@ -216,7 +230,12 @@ fun UrlInputScreen(
                             viewModel.updateDownloadMode(DownloadMode.VIDEO)
                         }
                     },
-                    label = { Text("Video (MP4)") },
+                    label = {
+                        Text(
+                            "Video (MP4)",
+                            fontWeight = if (uiState.downloadMode == DownloadMode.VIDEO) FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.VideoLibrary,
@@ -224,7 +243,15 @@ fun UrlInputScreen(
                             modifier = Modifier.size(18.dp)
                         )
                     },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    border = if (uiState.downloadMode == DownloadMode.VIDEO) {
+                        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                    } else null,
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                 )
             }
 

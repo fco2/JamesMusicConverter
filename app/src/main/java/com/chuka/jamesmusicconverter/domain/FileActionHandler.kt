@@ -21,10 +21,21 @@ class FileActionHandler @Inject constructor(
     private val snackbarController: SnackbarController
 ) {
 
+    private var lastIntentTime = 0L
+    private val INTENT_DEBOUNCE_DELAY = 500L // 500ms to prevent overlapping intents
+
     /**
      * Play the media file using the default player (video or audio)
      */
     fun playFile(filePath: String, isVideo: Boolean = false) {
+        // Additional debounce at the handler level
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastIntentTime < INTENT_DEBOUNCE_DELAY) {
+            android.util.Log.d("CHUKA_VIDEO", "Ignoring rapid play request (debounced)")
+            return
+        }
+        lastIntentTime = currentTime
+
         try {
             val file = File(filePath)
             if (!file.exists()) {
@@ -33,20 +44,21 @@ class FileActionHandler @Inject constructor(
             }
 
             val uri = getFileUri(file)
-            val mimeType = if (isVideo) "video/mp4" else "audio/mpeg"
-            val chooserTitle = if (isVideo) "Play Video" else "Play MP3"
+            val mimeType = if (isVideo) "video/*" else "audio/mpeg"
+
+            android.util.Log.d("CHUKA_VIDEO", "Playing ${if (isVideo) "video" else "audio"}: $filePath")
 
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, mimeType)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-
-            val chooser = Intent.createChooser(intent, chooserTitle).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                // Don't use SINGLE_TOP or CLEAR_TOP - they can cause issues with video players
+                addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             }
 
-            context.startActivity(chooser)
+            context.startActivity(intent)
         } catch (e: Exception) {
+            android.util.Log.e("CHUKA_VIDEO", "Error opening file", e)
             showToast("Error opening file: ${e.message}")
         }
     }
