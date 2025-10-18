@@ -122,6 +122,9 @@ class ConversionRepositoryImpl(
             } else {
                 throw Exception("Failed to download video")
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Re-throw CancellationException as-is so it can be properly handled by the ViewModel
+            throw e
         } catch (e: Exception) {
             throw Exception("Conversion failed: ${e.message}")
         }

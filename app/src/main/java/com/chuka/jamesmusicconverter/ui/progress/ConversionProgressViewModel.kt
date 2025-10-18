@@ -134,7 +134,11 @@ class ConversionProgressViewModel @Inject constructor(
             conversionJob = null
 
             if (_uiState.value is ConversionUiState.Converting) {
-                _uiState.value = ConversionUiState.Cancelled()
+                // Use current generation so the UI can properly handle this cancellation
+                _uiState.value = ConversionUiState.Cancelled(
+                    message = "Conversion cancelled",
+                    generation = conversionGeneration
+                )
             }
         } catch (_: Exception) {
             // Ignore cancellation errors - just ensure cleanup

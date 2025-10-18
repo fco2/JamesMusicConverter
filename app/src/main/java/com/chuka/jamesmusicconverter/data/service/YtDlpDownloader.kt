@@ -165,9 +165,15 @@ class YtDlpDownloader(private val context: Context) {
             val response = YoutubeDL.getInstance().execute(request) { progress, _, line ->
                 //Log.d(TAG, "Progress: $progress% - $line")
 
-                // Send progress updates (0.1 to 0.9 range)
-                val normalizedProgress = 0.1f + (progress / 100f * 0.8f)
-                trySend(DownloadProgress(normalizedProgress, "Downloading... $progress%"))
+                // yt-dlp reports -1 when it doesn't know total size yet
+                val actualProgress = if (progress < 0) 0f else progress
+                val normalizedProgress = 0.1f + (actualProgress / 100f * 0.8f)
+                val statusMessage = if (progress < 0) {
+                    "Downloading..."
+                } else {
+                    "Downloading... $progress%"
+                }
+                trySend(DownloadProgress(normalizedProgress, statusMessage))
             }
 
             Log.d(TAG, "Download completed. Exit code: ${response.exitCode}")
@@ -312,8 +318,15 @@ class YtDlpDownloader(private val context: Context) {
             val response = YoutubeDL.getInstance().execute(request) { progress, _, line ->
                 //Log.d(TAG, "Audio progress: $progress% - $line")
 
-                val normalizedProgress = 0.1f + (progress / 100f * 0.9f)
-                trySend(DownloadProgress(normalizedProgress, "Downloading audio... $progress%"))
+                // yt-dlp reports -1 when it doesn't know total size yet
+                val actualProgress = if (progress < 0) 0f else progress
+                val normalizedProgress = 0.1f + (actualProgress / 100f * 0.9f)
+                val statusMessage = if (progress < 0) {
+                    "Downloading audio..."
+                } else {
+                    "Downloading audio... $progress%"
+                }
+                trySend(DownloadProgress(normalizedProgress, statusMessage))
             }
 
             // Unregister session after completion
