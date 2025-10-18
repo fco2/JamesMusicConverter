@@ -47,6 +47,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.chuka.jamesmusicconverter.ui.components.SnackbarController
+import com.chuka.jamesmusicconverter.ui.components.SnackbarViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,7 +61,8 @@ fun ConversionProgressScreen(
     onNavigateToError: (String) -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ConversionProgressViewModel = hiltViewModel()
+    viewModel: ConversionProgressViewModel = hiltViewModel(),
+    snackbarController: SnackbarController = hiltViewModel<SnackbarViewModel>().snackbarController
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -152,12 +155,8 @@ fun ConversionProgressScreen(
                 }
                 android.util.Log.d("CHUKA_Screen", "CANCELLED - Navigating back to home")
                 hasNavigated = true
-                // Show toast and navigate back to home
-                android.widget.Toast.makeText(
-                    context,
-                    "Conversion cancelled",
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
+                // Show snackbar and navigate back to home
+                snackbarController.showMessage("Conversion cancelled")
                 onNavigateBack()
             }
             else -> {

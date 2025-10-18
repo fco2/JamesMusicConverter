@@ -3,8 +3,9 @@ package com.chuka.jamesmusicconverter.domain
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
+import androidx.compose.material3.SnackbarDuration
 import androidx.core.content.FileProvider
+import com.chuka.jamesmusicconverter.ui.components.SnackbarController
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -16,7 +17,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class FileActionHandler @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val snackbarController: SnackbarController
 ) {
 
     /**
@@ -70,7 +72,7 @@ class FileActionHandler @Inject constructor(
                 context.startActivity(intent)
             } catch (e: Exception) {
                 // Fallback: show file path
-                showToast("File location: ${file.parent}", Toast.LENGTH_LONG)
+                showToast("File location: ${file.parent}", 1) // 1 = LENGTH_LONG
             }
         } catch (e: Exception) {
             showToast("Error: ${e.message}")
@@ -84,7 +86,7 @@ class FileActionHandler @Inject constructor(
         try {
             showToast(
                 "File saved to: Music/JamesMusicConverter/$fileName",
-                Toast.LENGTH_LONG
+                1 // 1 = LENGTH_LONG
             )
         } catch (e: Exception) {
             showToast("Error: ${e.message}")
@@ -134,9 +136,14 @@ class FileActionHandler @Inject constructor(
     }
 
     /**
-     * Shows a toast message
+     * Shows a snackbar message
      */
-    private fun showToast(message: String, duration: Int = Toast.LENGTH_SHORT) {
-        Toast.makeText(context, message, duration).show()
+    private fun showToast(message: String, duration: Int = 0) {
+        val snackbarDuration = if (duration == 1) { // Toast.LENGTH_LONG
+            SnackbarDuration.Long
+        } else {
+            SnackbarDuration.Short
+        }
+        snackbarController.showMessage(message, snackbarDuration)
     }
 }

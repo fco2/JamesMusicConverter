@@ -1,7 +1,19 @@
 package com.chuka.jamesmusicconverter.navigation
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.chuka.jamesmusicconverter.ui.completed.ConversionCompletedScreen
+import com.chuka.jamesmusicconverter.ui.components.MusicSnackbar
+import com.chuka.jamesmusicconverter.ui.components.SnackbarController
+import com.chuka.jamesmusicconverter.ui.components.SnackbarViewModel
 import com.chuka.jamesmusicconverter.ui.error.ConversionErrorScreen
 import com.chuka.jamesmusicconverter.ui.progress.ConversionProgressScreen
 import com.chuka.jamesmusicconverter.ui.urlinput.UrlInputScreen
@@ -13,8 +25,27 @@ import com.chuka.jamesmusicconverter.ui.urlinput.UrlInputScreen
 @Composable
 fun MusicConverterNavGraph() {
     val navBackStack = rememberNavBackStack(UrlInputRoute)
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
-    NavDisplay(navBackStack = navBackStack) { destination, backStack ->
+    // Get snackbar controller from ViewModel
+    val snackbarViewModel: SnackbarViewModel = hiltViewModel()
+    val snackbarController = snackbarViewModel.snackbarController
+
+    // Initialize snackbar controller
+    LaunchedEffect(Unit) {
+        snackbarController.initialize(snackbarHostState, scope)
+    }
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                MusicSnackbar(snackbarData = data)
+            }
+        }
+    ) { paddingValues ->
+        NavDisplay(navBackStack = navBackStack) { destination, backStack ->
         when (destination) {
             is UrlInputRoute -> {
                 android.util.Log.d("CHUKA_NavGraph", "=== Showing UrlInputScreen ===")
@@ -105,6 +136,7 @@ fun MusicConverterNavGraph() {
                     }
                 )
             }
+        }
         }
     }
 }
