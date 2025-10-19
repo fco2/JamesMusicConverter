@@ -23,7 +23,7 @@ import java.io.FileOutputStream
  * This uses the youtubedl-android library which bundles yt-dlp with Python runtime,
  * eliminating permission issues and binary extraction problems.
  *
- * Supported platforms: YouTube, Vimeo, TikTok, Instagram, Twitter/X, and 1000+ more
+ * Supported platforms: YouTube, TikTok, Instagram, Twitter/X, and 1000+ more
  */
 class YtDlpDownloader(private val context: Context) {
 

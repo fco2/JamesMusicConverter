@@ -260,7 +260,12 @@ fun UrlInputScreen(
                 value = uiState.urlTextFieldValue,
                 onValueChange = viewModel::updateUrl,
                 label = { Text("Video URL") },
-                placeholder = { Text("https://www.youtube.com/watch?v=...") },
+                placeholder = {
+                    Text(
+                        "https://www.youtube.com/watch?v=...",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
                 isError = uiState.isError,
                 supportingText = if (uiState.isError) {
@@ -315,7 +320,7 @@ fun UrlInputScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Advanced Options (for Vimeo, etc.)",
+                            text = "Advanced Options",
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

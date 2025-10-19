@@ -345,7 +345,6 @@ class ConversionRepositoryImpl(
         // In a real app, you would fetch this from the video platform's API
         return when {
             url.contains("youtube.com") || url.contains("youtu.be") -> "YouTube Video"
-            url.contains("vimeo.com") -> "Vimeo Video"
             url.contains("dailymotion.com") -> "Dailymotion Video"
             else -> "Video"
         }

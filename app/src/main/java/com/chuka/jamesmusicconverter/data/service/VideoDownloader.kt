@@ -18,7 +18,7 @@ import java.io.FileOutputStream
  *
  * Supports:
  * - Direct video URLs (via OkHttp)
- * - YouTube, Vimeo, etc. (via yt-dlp)
+ * - YouTube and other platforms (via yt-dlp)
  */
 class VideoDownloader(private val context: Context) {
 
@@ -31,11 +31,11 @@ class VideoDownloader(private val context: Context) {
 
     /**
      * Downloads a video from the given URL with progress updates
-     * Automatically detects if yt-dlp is needed (YouTube, Vimeo, etc.)
+     * Automatically detects if yt-dlp is needed (YouTube, etc.)
      * or if it's a direct video URL
      *
      * @param url The video URL to download
-     * @param username Optional username for authentication (for sites like Vimeo)
+     * @param username Optional username for authentication
      * @param password Optional password for authentication
      * @param cookiesFromBrowser Optional browser to extract cookies from (e.g., "chrome", "firefox")
      * @param downloadMode Whether to download as audio (MP3) or video (MP4)
@@ -50,7 +50,7 @@ class VideoDownloader(private val context: Context) {
         emit(DownloadProgress(0f, "Preparing download..."))
 
         try {
-            // Check if URL requires yt-dlp (YouTube, Vimeo, etc.)
+            // Check if URL requires yt-dlp (YouTube, etc.)
             if (requiresYtDlp(url)) {
                 Log.d("VideoDownloader", "URL requires yt-dlp: $url (mode: $downloadMode)")
                 emit(DownloadProgress(0.01f, "Checking yt-dlp availability..."))
@@ -132,7 +132,7 @@ class VideoDownloader(private val context: Context) {
                 if (!response.isSuccessful) {
                     throw Exception("Failed to download: HTTP ${response.code}. " +
                             "This URL may not be a direct video link. " +
-                            "For YouTube/Vimeo URLs, please use a direct video URL for now.")
+                            "For YouTube URLs, please ensure the URL is valid.")
                 }
 
                 val body = response.body ?: throw Exception("Empty response body")
@@ -210,7 +210,6 @@ class VideoDownloader(private val context: Context) {
         val lowerUrl = url.lowercase()
         return lowerUrl.contains("youtube.com") ||
                 lowerUrl.contains("youtu.be") ||
-                lowerUrl.contains("vimeo.com") ||
                 lowerUrl.contains("dailymotion.com") ||
                 lowerUrl.contains("twitch.tv") ||
                 lowerUrl.contains("facebook.com") ||
