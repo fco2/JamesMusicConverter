@@ -19,6 +19,15 @@ private fun getErrorSuggestions(errorMessage: String): List<String> {
     val suggestions = mutableListOf<String>()
 
     when {
+        // Instagram authentication errors (most specific first)
+        message.contains("instagram authentication required") ||
+                (message.contains("instagram") && (message.contains("registered users") || message.contains(
+                    "follow this account"
+                ))) -> {
+            // Don't add suggestions - the error message already contains step-by-step instructions
+            return emptyList()
+        }
+
         message.contains("network") || message.contains("connection") || message.contains("timeout") -> {
             suggestions.add("Check your internet connection")
             suggestions.add("Try again when connection is stable")
@@ -43,7 +52,7 @@ private fun getErrorSuggestions(errorMessage: String): List<String> {
             suggestions.add("Ensure Download folder is accessible")
         }
 
-        message.contains("authentication") || message.contains("login") -> {
+        message.contains("authentication") || message.contains("login") || message.contains("cookies") -> {
             suggestions.add("Use Advanced Options to provide login credentials")
             suggestions.add("Enable cookie extraction from your browser")
             suggestions.add("Make sure you're logged into the platform")

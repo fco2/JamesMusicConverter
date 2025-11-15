@@ -415,14 +415,59 @@ class YtDlpDownloader(private val context: Context) {
                 val errorMsg = response.err ?: "Unknown error"
                 Log.e(TAG, "Download failed: $errorMsg")
                 Log.e(TAG, "Full error output: ${response.out}")
-                close(Exception("Video download failed: $errorMsg"))
+
+                // Check for authentication errors and provide helpful message
+                val enhancedError = if (errorMsg.contains("registered users", ignoreCase = true) ||
+                    errorMsg.contains("follow this account", ignoreCase = true) ||
+                    (errorMsg.contains(
+                        "cookies",
+                        ignoreCase = true
+                    ) && errorMsg.contains("instagram", ignoreCase = true))
+                ) {
+                    "Instagram Authentication Required\n\n" +
+                            "This content requires login. To download:\n\n" +
+                            "1. Go back to the URL input screen\n" +
+                            "2. Expand 'Advanced Options'\n" +
+                            "3. Enable 'Extract cookies from browser'\n" +
+                            "4. Enter your browser name (e.g., 'chrome', 'firefox', 'edge')\n" +
+                            "5. Make sure you're logged into Instagram in that browser\n" +
+                            "6. Try downloading again\n\n" +
+                            "Technical details: $errorMsg"
+                } else {
+                    "Video download failed: $errorMsg"
+                }
+
+                close(Exception(enhancedError))
             }
 
             close()
 
         } catch (e: Exception) {
             Log.e(TAG, "Video download failed", e)
-            close(Exception("Video download failed: ${e.message}"))
+
+            // Provide enhanced error message for authentication issues
+            val errorMessage = e.message ?: "Unknown error"
+            val enhancedError = if (errorMessage.contains("registered users", ignoreCase = true) ||
+                errorMessage.contains("follow this account", ignoreCase = true) ||
+                (errorMessage.contains(
+                    "cookies",
+                    ignoreCase = true
+                ) && errorMessage.contains("instagram", ignoreCase = true))
+            ) {
+                "Instagram Authentication Required\n\n" +
+                        "This content requires login. To download:\n\n" +
+                        "1. Go back to the URL input screen\n" +
+                        "2. Expand 'Advanced Options'\n" +
+                        "3. Enable 'Extract cookies from browser'\n" +
+                        "4. Enter your browser name (e.g., 'chrome', 'firefox', 'edge')\n" +
+                        "5. Make sure you're logged into Instagram in that browser\n" +
+                        "6. Try downloading again\n\n" +
+                        "Technical details: $errorMessage"
+            } else {
+                "Video download failed: $errorMessage"
+            }
+
+            close(Exception(enhancedError))
         } finally {
             // Always unregister session on completion/error/cancellation
             synchronized(sessionsLock) {
@@ -615,14 +660,59 @@ class YtDlpDownloader(private val context: Context) {
             } else {
                 val errorMsg = response.err ?: "Unknown error"
                 Log.e(TAG, "Audio download error output: ${response.out}")
-                close(Exception("Audio download failed: $errorMsg"))
+
+                // Check for authentication errors and provide helpful message
+                val enhancedError = if (errorMsg.contains("registered users", ignoreCase = true) ||
+                    errorMsg.contains("follow this account", ignoreCase = true) ||
+                    (errorMsg.contains(
+                        "cookies",
+                        ignoreCase = true
+                    ) && errorMsg.contains("instagram", ignoreCase = true))
+                ) {
+                    "Instagram Authentication Required\n\n" +
+                            "This content requires login. To download:\n\n" +
+                            "1. Go back to the URL input screen\n" +
+                            "2. Expand 'Advanced Options'\n" +
+                            "3. Enable 'Extract cookies from browser'\n" +
+                            "4. Enter your browser name (e.g., 'chrome', 'firefox', 'edge')\n" +
+                            "5. Make sure you're logged into Instagram in that browser\n" +
+                            "6. Try downloading again\n\n" +
+                            "Technical details: $errorMsg"
+                } else {
+                    "Audio download failed: $errorMsg"
+                }
+
+                close(Exception(enhancedError))
             }
 
             close()
 
         } catch (e: Exception) {
             Log.e(TAG, "Audio download failed", e)
-            close(Exception("Audio download failed: ${e.message}"))
+
+            // Provide enhanced error message for authentication issues
+            val errorMessage = e.message ?: "Unknown error"
+            val enhancedError = if (errorMessage.contains("registered users", ignoreCase = true) ||
+                errorMessage.contains("follow this account", ignoreCase = true) ||
+                (errorMessage.contains(
+                    "cookies",
+                    ignoreCase = true
+                ) && errorMessage.contains("instagram", ignoreCase = true))
+            ) {
+                "Instagram Authentication Required\n\n" +
+                        "This content requires login. To download:\n\n" +
+                        "1. Go back to the URL input screen\n" +
+                        "2. Expand 'Advanced Options'\n" +
+                        "3. Enable 'Extract cookies from browser'\n" +
+                        "4. Enter your browser name (e.g., 'chrome', 'firefox', 'edge')\n" +
+                        "5. Make sure you're logged into Instagram in that browser\n" +
+                        "6. Try downloading again\n\n" +
+                        "Technical details: $errorMessage"
+            } else {
+                "Audio download failed: $errorMessage"
+            }
+
+            close(Exception(enhancedError))
         } finally {
             // Always unregister session on completion/error/cancellation
             synchronized(sessionsLock) {
@@ -691,10 +781,25 @@ class YtDlpDownloader(private val context: Context) {
                     uploader = uploader
                 )
             } else {
-                Log.e(TAG, "Failed to get video info: ${response.err}")
+                val errorMsg = response.err ?: ""
+                Log.e(TAG, "Failed to get video info: $errorMsg")
+
+                // Throw specific exception for authentication errors
+                if (errorMsg.contains("registered users", ignoreCase = true) ||
+                    errorMsg.contains("follow this account", ignoreCase = true) ||
+                    errorMsg.contains("cookies", ignoreCase = true)
+                ) {
+                    throw InstagramAuthException(
+                        "This Instagram content requires authentication. Please use the 'Extract cookies from browser' option in Advanced Options."
+                    )
+                }
+
                 null
             }
 
+        } catch (e: InstagramAuthException) {
+            // Re-throw authentication exceptions
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get video info", e)
             null
@@ -861,3 +966,8 @@ data class VideoInfo(
     val thumbnail: String?,
     val uploader: String?
 )
+
+/**
+ * Exception thrown when Instagram content requires authentication
+ */
+class InstagramAuthException(message: String) : Exception(message)
