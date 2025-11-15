@@ -257,10 +257,35 @@ class YtDlpDownloader(private val context: Context) {
                 request.addOption("--no-playlist")
             }
 
+            // Network and bypass options to fix 403 errors
             request.addOption("--socket-timeout", "30")
-            request.addOption("--retries", "3")
-            // Try to avoid geo-blocking issues
+            request.addOption("--retries", "10")  // Increased retries
+            request.addOption("--fragment-retries", "10")
+            request.addOption("--retry-sleep", "3")
+
+            // User-Agent spoofing to avoid bot detection
+            request.addOption(
+                "--user-agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+
+            // Additional headers to appear more like a real browser
+            request.addOption(
+                "--add-header",
+                "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            )
+            request.addOption("--add-header", "Accept-Language:en-us,en;q=0.5")
+            request.addOption("--add-header", "Sec-Fetch-Mode:navigate")
+
+            // Try to avoid geo-blocking and bot detection
             request.addOption("--geo-bypass")
+            request.addOption("--no-check-certificates")  // Sometimes needed for proxy/VPN
+
+            // Extractor arguments for YouTube specifically
+            request.addOption("--extractor-args", "youtube:player_client=android,web")
+
+            // Use IPv4 to avoid IPv6 issues
+            request.addOption("--force-ipv4")
 
             // Add authentication if provided
             if (!username.isNullOrBlank() && !password.isNullOrBlank()) {
@@ -495,11 +520,36 @@ class YtDlpDownloader(private val context: Context) {
             // Force overwrite existing files (allows re-downloading same audio)
             request.addOption("--force-overwrites")
             request.addOption("--no-playlist")
+
+            // Network and bypass options to fix 403 errors
             request.addOption("--socket-timeout", "30")
-            // Add retries for network issues
-            request.addOption("--retries", "3")
-            // Try to avoid geo-blocking issues
+            request.addOption("--retries", "10")  // Increased retries
+            request.addOption("--fragment-retries", "10")
+            request.addOption("--retry-sleep", "3")
+
+            // User-Agent spoofing to avoid bot detection
+            request.addOption(
+                "--user-agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+
+            // Additional headers to appear more like a real browser
+            request.addOption(
+                "--add-header",
+                "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            )
+            request.addOption("--add-header", "Accept-Language:en-us,en;q=0.5")
+            request.addOption("--add-header", "Sec-Fetch-Mode:navigate")
+
+            // Try to avoid geo-blocking and bot detection
             request.addOption("--geo-bypass")
+            request.addOption("--no-check-certificates")
+
+            // Extractor arguments for YouTube specifically
+            request.addOption("--extractor-args", "youtube:player_client=android,web")
+
+            // Use IPv4 to avoid IPv6 issues
+            request.addOption("--force-ipv4")
 
             // Add authentication if provided
             if (!username.isNullOrBlank() && !password.isNullOrBlank()) {
@@ -608,6 +658,14 @@ class YtDlpDownloader(private val context: Context) {
             request.addOption("--dump-json")
             request.addOption("--no-playlist")
             request.addOption("--skip-download")
+
+            // Add bypass options to prevent 403 errors when fetching info
+            request.addOption(
+                "--user-agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            request.addOption("--extractor-args", "youtube:player_client=android,web")
+            request.addOption("--no-check-certificates")
 
             val response = YoutubeDL.getInstance().execute(request)
 

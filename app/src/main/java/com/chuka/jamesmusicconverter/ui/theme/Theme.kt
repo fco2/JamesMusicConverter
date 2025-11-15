@@ -15,18 +15,35 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Always use light theme with white background and navy blue accents
+// Modern professional light theme with improved colors
 private val AppColorScheme = lightColorScheme(
     primary = NavyBlue,
-    secondary = Purple40,
-    tertiary = Pink40,
-    background = White,
-    surface = White,
     onPrimary = White,
+    primaryContainer = LightBlue.copy(alpha = 0.15f),
+    onPrimaryContainer = NavyBlue,
+
+    secondary = LightBlue,
     onSecondary = White,
+    secondaryContainer = LightBlue.copy(alpha = 0.2f),
+    onSecondaryContainer = NavyBlue,
+
+    tertiary = Purple40,
     onTertiary = White,
-    onBackground = androidx.compose.ui.graphics.Color(0xFF1C1B1F),
-    onSurface = androidx.compose.ui.graphics.Color(0xFF1C1B1F)
+
+    background = BackgroundGray,
+    onBackground = TextPrimary,
+
+    surface = White,
+    onSurface = TextPrimary,
+
+    surfaceVariant = SurfaceGray,
+    onSurfaceVariant = TextSecondary,
+
+    error = androidx.compose.ui.graphics.Color(0xFFD32F2F),
+    onError = White,
+
+    outline = androidx.compose.ui.graphics.Color(0xFFBDBDBD),
+    outlineVariant = androidx.compose.ui.graphics.Color(0xFFE0E0E0)
 )
 
 @Composable
