@@ -15,8 +15,10 @@ import com.chuka.jamesmusicconverter.ui.components.MusicSnackbar
 import com.chuka.jamesmusicconverter.ui.components.SnackbarController
 import com.chuka.jamesmusicconverter.ui.components.SnackbarViewModel
 import com.chuka.jamesmusicconverter.ui.error.ConversionErrorScreen
+import com.chuka.jamesmusicconverter.ui.history.DownloadHistoryScreen
 import com.chuka.jamesmusicconverter.ui.progress.ConversionProgressScreen
 import com.chuka.jamesmusicconverter.ui.urlinput.UrlInputScreen
+import kotlin.jvm.java
 
 /**
  * Main navigation graph for the Music Converter app
@@ -63,6 +65,10 @@ fun MusicConverterNavGraph() {
                             cookiesFromBrowser = browser,
                             downloadMode = downloadMode
                         ))
+                    },
+                    onNavigateToHistory = {
+                        android.util.Log.d("CHUKA_NavGraph", "=== Navigating to History ===")
+                        backStack.navigate(DownloadHistoryRoute)
                     }
                 )
             }
@@ -142,6 +148,16 @@ fun MusicConverterNavGraph() {
                     onRetry = {
                         // Go back to input screen to try a different URL
                         backStack.clearAndNavigate(UrlInputRoute)
+                    }
+                )
+            }
+
+            is DownloadHistoryRoute -> {
+                android.util.Log.d("CHUKA_NavGraph", "=== Showing DownloadHistoryScreen ===")
+
+                DownloadHistoryScreen(
+                    onNavigateBack = {
+                        backStack.navigateUp()
                     }
                 )
             }

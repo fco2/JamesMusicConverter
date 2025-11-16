@@ -372,6 +372,69 @@ Or any other supported platform URL:
 4. Completion screen shows file details with Play button
 5. Tap Play to open in your music player
 
+## 🔐 Instagram & Private Content Authentication
+
+### Problem: "Authentication Required" Error
+
+If you get an error like:
+
+```
+Instagram Authentication Required
+This content requires login...
+```
+
+This happens because the content requires login (private accounts, follower-only content, stories,
+etc.).
+
+### Quick Solution (2 Minutes)
+
+1. **Login to Instagram in Chrome/Firefox**
+    - Open your browser
+    - Go to instagram.com
+    - Log in normally
+
+2. **Configure the app**
+    - Paste your Instagram URL
+    - Tap **"Advanced Options"**
+    - Enable ☑️ **"Extract cookies from browser"**
+    - Type: `chrome` (or `firefox`, `edge`, `safari`)
+
+3. **Download** - Success! ✨
+
+### Supported Browsers
+
+- `chrome` - Google Chrome
+- `firefox` - Mozilla Firefox
+- `edge` - Microsoft Edge
+- `safari` - Safari (Mac)
+
+### Full Documentation
+
+- **Quick Guide**: [`QUICK_FIX_INSTAGRAM_AUTH.md`](QUICK_FIX_INSTAGRAM_AUTH.md)
+- **Comprehensive Guide**: [`INSTAGRAM_AUTHENTICATION_GUIDE.md`](INSTAGRAM_AUTHENTICATION_GUIDE.md)
+- **Technical Details**: [`INSTAGRAM_AUTH_FIX_SUMMARY.md`](INSTAGRAM_AUTH_FIX_SUMMARY.md)
+
+### Why This Works
+
+The app extracts your browser's Instagram cookies (locally) and uses them to authenticate downloads.
+It's:
+
+- ✅ Secure (all local, no data sent anywhere)
+- ✅ Works with 2FA
+- ✅ No password storage needed
+- ✅ Same as using your browser
+
+### Other Platforms
+
+This also works for:
+
+- Twitter/X protected accounts
+- Facebook private videos
+- TikTok private accounts
+- Any platform requiring authentication
+
+---
+
 ## 📝 Permissions
 
 The app requires these permissions (automatically requested at runtime):

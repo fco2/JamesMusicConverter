@@ -36,7 +36,9 @@ interface ConversionRepository {
 class ConversionRepositoryImpl(
     private val videoDownloader: VideoDownloader,
     private val audioExtractor: AudioExtractor,
-    private val notificationService: DownloadNotificationService
+    private val notificationService: DownloadNotificationService,
+    private val downloadHistoryRepository: DownloadHistoryRepository,
+    private val thumbnailManager: com.chuka.jamesmusicconverter.data.util.ThumbnailManager
 ) : ConversionRepository {
 
     // Store conversion results by URL to prevent caching across different conversions
@@ -128,6 +130,9 @@ class ConversionRepositoryImpl(
                                     conversionResults[videoUrl] = result
                                 }
 
+                                // Save to history
+                                saveToHistory(videoUrl, result, DownloadMode.AUDIO)
+
                                 // Show notification when conversion is complete
                                 notificationService.showDownloadCompletedNotification(
                                     fileName = outputFile.name,
@@ -194,6 +199,9 @@ class ConversionRepositoryImpl(
                                 android.util.Log.d("CHUKA_Repository", "Storing video result for URL: $videoUrl -> ${result.fileName} (${result.getVideoCount()} videos)")
                                 conversionResults[videoUrl] = result
                             }
+
+                            // Save to history
+                            saveToHistory(videoUrl, result, DownloadMode.VIDEO)
 
                             // Show notification when download is complete
                             val notificationMessage = if (downloadedVideos.size > 1) {
@@ -295,6 +303,9 @@ class ConversionRepositoryImpl(
                             conversionResults[videoUrl] = result
                         }
 
+                        // Save to history
+                        saveToHistory(videoUrl, result, DownloadMode.AUDIO)
+
                         // Show notification when conversion is complete
                         notificationService.showDownloadCompletedNotification(
                             fileName = outputFile.name,
@@ -347,6 +358,66 @@ class ConversionRepositoryImpl(
             url.contains("youtube.com") || url.contains("youtu.be") -> "YouTube Video"
             url.contains("dailymotion.com") -> "Dailymotion Video"
             else -> "Video"
+        }
+    }
+
+    /**
+     * Detect platform from URL
+     */
+    private fun detectPlatform(url: String): String {
+        return when {
+            url.contains("youtube.com", ignoreCase = true) ||
+                    url.contains("youtu.be", ignoreCase = true) -> "YouTube"
+
+            url.contains("tiktok.com", ignoreCase = true) -> "TikTok"
+            url.contains("instagram.com", ignoreCase = true) -> "Instagram"
+            url.contains("twitter.com", ignoreCase = true) ||
+                    url.contains("x.com", ignoreCase = true) -> "Twitter"
+
+            url.contains("facebook.com", ignoreCase = true) ||
+                    url.contains("fb.watch", ignoreCase = true) -> "Facebook"
+
+            url.contains("dailymotion.com", ignoreCase = true) -> "Dailymotion"
+            else -> "Other"
+        }
+    }
+
+    /**
+     * Save download to history
+     */
+    private suspend fun saveToHistory(
+        videoUrl: String,
+        result: ConversionResult,
+        downloadMode: DownloadMode
+    ) {
+        try {
+            // Download and save thumbnail if available
+            val localThumbnailPath = if (result.thumbnailUrl != null) {
+                thumbnailManager.downloadAndSaveThumbnail(
+                    result.thumbnailUrl,
+                    result.fileName
+                )
+            } else null
+
+            // Add to history
+            downloadHistoryRepository.addDownload(
+                title = result.videoTitle,
+                url = videoUrl,
+                fileName = result.fileName,
+                filePath = result.filePath,
+                fileSize = result.fileSize,
+                localThumbnailPath = localThumbnailPath,
+                remoteThumbnailUrl = result.thumbnailUrl,
+                platform = detectPlatform(videoUrl),
+                downloadMode = downloadMode,
+                duration = result.durationMillis / 1000, // Convert to seconds
+                uploader = null // We don't have uploader info in ConversionResult
+            )
+
+            android.util.Log.d("CHUKA_Repository", "Saved to history: ${result.fileName}")
+        } catch (e: Exception) {
+            android.util.Log.e("CHUKA_Repository", "Failed to save to history", e)
+            // Don't fail the download if history save fails
         }
     }
 }
