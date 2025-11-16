@@ -11,64 +11,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
-/**
- * Provides smart suggestions based on error message content
- */
-private fun getErrorSuggestions(errorMessage: String): List<String> {
-    val message = errorMessage.lowercase()
-    val suggestions = mutableListOf<String>()
-
-    when {
-        // Instagram authentication errors (most specific first)
-        message.contains("instagram authentication required") ||
-                (message.contains("instagram") && (message.contains("registered users") || message.contains(
-                    "follow this account"
-                ))) -> {
-            // Don't add suggestions - the error message already contains step-by-step instructions
-            return emptyList()
-        }
-
-        message.contains("network") || message.contains("connection") || message.contains("timeout") -> {
-            suggestions.add("Check your internet connection")
-            suggestions.add("Try again when connection is stable")
-            suggestions.add("Disable VPN if active")
-        }
-
-        message.contains("private") || message.contains("restricted") || message.contains("unavailable") -> {
-            suggestions.add("The video may be private or region-locked")
-            suggestions.add("Try using cookies from your browser in Advanced Options")
-            suggestions.add("Make sure you're logged into the platform")
-        }
-
-        message.contains("invalid") || message.contains("unsupported") -> {
-            suggestions.add("Check if the URL is correct")
-            suggestions.add("Make sure the video is publicly accessible")
-            suggestions.add("Try a different video from the same platform")
-        }
-
-        message.contains("permission") || message.contains("storage") -> {
-            suggestions.add("Grant storage permissions in app settings")
-            suggestions.add("Check if device has enough free space")
-            suggestions.add("Ensure Download folder is accessible")
-        }
-
-        message.contains("authentication") || message.contains("login") || message.contains("cookies") -> {
-            suggestions.add("Use Advanced Options to provide login credentials")
-            suggestions.add("Enable cookie extraction from your browser")
-            suggestions.add("Make sure you're logged into the platform")
-        }
-
-        else -> {
-            suggestions.add("Double-check the video URL is correct")
-            suggestions.add("Try a different video to test")
-            suggestions.add("Check if the platform is currently working")
-            suggestions.add("Restart the app and try again")
-        }
-    }
-
-    return suggestions
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConversionErrorScreen(
@@ -144,7 +86,6 @@ fun ConversionErrorScreen(
                     Text(
                         text = "Error Details:",
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onErrorContainer
                     )
                     Text(
@@ -155,56 +96,33 @@ fun ConversionErrorScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            // Smart suggestions based on error message
-            val suggestions = getErrorSuggestions(errorMessage)
-            if (suggestions.isNotEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+            // Common error reasons
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                text = "Suggestions:",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        suggestions.forEach { suggestion ->
-                            Row(
-                                modifier = Modifier.padding(start = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = "•",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = suggestion,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
+                    Text(
+                        text = "Common Issues:",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "• Invalid or unsupported video URL\n" +
+                                "• Video is private or restricted\n" +
+                                "• Network connection issues\n" +
+                                "• Video platform not supported\n" +
+                                "• Video contains protected content",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 

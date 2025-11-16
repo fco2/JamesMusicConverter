@@ -15,12 +15,6 @@ sealed interface NavKey
 object UrlInputRoute : NavKey
 
 /**
- * Download history screen
- */
-@Serializable
-object DownloadHistoryRoute : NavKey
-
-/**
  * Download mode enum for serialization
  */
 @Serializable

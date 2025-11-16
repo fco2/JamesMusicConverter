@@ -257,35 +257,10 @@ class YtDlpDownloader(private val context: Context) {
                 request.addOption("--no-playlist")
             }
 
-            // Network and bypass options to fix 403 errors
             request.addOption("--socket-timeout", "30")
-            request.addOption("--retries", "10")  // Increased retries
-            request.addOption("--fragment-retries", "10")
-            request.addOption("--retry-sleep", "3")
-
-            // User-Agent spoofing to avoid bot detection
-            request.addOption(
-                "--user-agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
-
-            // Additional headers to appear more like a real browser
-            request.addOption(
-                "--add-header",
-                "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-            )
-            request.addOption("--add-header", "Accept-Language:en-us,en;q=0.5")
-            request.addOption("--add-header", "Sec-Fetch-Mode:navigate")
-
-            // Try to avoid geo-blocking and bot detection
+            request.addOption("--retries", "3")
+            // Try to avoid geo-blocking issues
             request.addOption("--geo-bypass")
-            request.addOption("--no-check-certificates")  // Sometimes needed for proxy/VPN
-
-            // Extractor arguments for YouTube specifically
-            request.addOption("--extractor-args", "youtube:player_client=android,web")
-
-            // Use IPv4 to avoid IPv6 issues
-            request.addOption("--force-ipv4")
 
             // Add authentication if provided
             if (!username.isNullOrBlank() && !password.isNullOrBlank()) {
@@ -415,59 +390,14 @@ class YtDlpDownloader(private val context: Context) {
                 val errorMsg = response.err ?: "Unknown error"
                 Log.e(TAG, "Download failed: $errorMsg")
                 Log.e(TAG, "Full error output: ${response.out}")
-
-                // Check for authentication errors and provide helpful message
-                val enhancedError = if (errorMsg.contains("registered users", ignoreCase = true) ||
-                    errorMsg.contains("follow this account", ignoreCase = true) ||
-                    (errorMsg.contains(
-                        "cookies",
-                        ignoreCase = true
-                    ) && errorMsg.contains("instagram", ignoreCase = true))
-                ) {
-                    "Instagram Authentication Required\n\n" +
-                            "This content requires login. To download:\n\n" +
-                            "1. Go back to the URL input screen\n" +
-                            "2. Expand 'Advanced Options'\n" +
-                            "3. Enable 'Extract cookies from browser'\n" +
-                            "4. Enter your browser name (e.g., 'chrome', 'firefox', 'edge')\n" +
-                            "5. Make sure you're logged into Instagram in that browser\n" +
-                            "6. Try downloading again\n\n" +
-                            "Technical details: $errorMsg"
-                } else {
-                    "Video download failed: $errorMsg"
-                }
-
-                close(Exception(enhancedError))
+                close(Exception("Video download failed: $errorMsg"))
             }
 
             close()
 
         } catch (e: Exception) {
             Log.e(TAG, "Video download failed", e)
-
-            // Provide enhanced error message for authentication issues
-            val errorMessage = e.message ?: "Unknown error"
-            val enhancedError = if (errorMessage.contains("registered users", ignoreCase = true) ||
-                errorMessage.contains("follow this account", ignoreCase = true) ||
-                (errorMessage.contains(
-                    "cookies",
-                    ignoreCase = true
-                ) && errorMessage.contains("instagram", ignoreCase = true))
-            ) {
-                "Instagram Authentication Required\n\n" +
-                        "This content requires login. To download:\n\n" +
-                        "1. Go back to the URL input screen\n" +
-                        "2. Expand 'Advanced Options'\n" +
-                        "3. Enable 'Extract cookies from browser'\n" +
-                        "4. Enter your browser name (e.g., 'chrome', 'firefox', 'edge')\n" +
-                        "5. Make sure you're logged into Instagram in that browser\n" +
-                        "6. Try downloading again\n\n" +
-                        "Technical details: $errorMessage"
-            } else {
-                "Video download failed: $errorMessage"
-            }
-
-            close(Exception(enhancedError))
+            close(Exception("Video download failed: ${e.message}"))
         } finally {
             // Always unregister session on completion/error/cancellation
             synchronized(sessionsLock) {
@@ -565,36 +495,11 @@ class YtDlpDownloader(private val context: Context) {
             // Force overwrite existing files (allows re-downloading same audio)
             request.addOption("--force-overwrites")
             request.addOption("--no-playlist")
-
-            // Network and bypass options to fix 403 errors
             request.addOption("--socket-timeout", "30")
-            request.addOption("--retries", "10")  // Increased retries
-            request.addOption("--fragment-retries", "10")
-            request.addOption("--retry-sleep", "3")
-
-            // User-Agent spoofing to avoid bot detection
-            request.addOption(
-                "--user-agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
-
-            // Additional headers to appear more like a real browser
-            request.addOption(
-                "--add-header",
-                "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-            )
-            request.addOption("--add-header", "Accept-Language:en-us,en;q=0.5")
-            request.addOption("--add-header", "Sec-Fetch-Mode:navigate")
-
-            // Try to avoid geo-blocking and bot detection
+            // Add retries for network issues
+            request.addOption("--retries", "3")
+            // Try to avoid geo-blocking issues
             request.addOption("--geo-bypass")
-            request.addOption("--no-check-certificates")
-
-            // Extractor arguments for YouTube specifically
-            request.addOption("--extractor-args", "youtube:player_client=android,web")
-
-            // Use IPv4 to avoid IPv6 issues
-            request.addOption("--force-ipv4")
 
             // Add authentication if provided
             if (!username.isNullOrBlank() && !password.isNullOrBlank()) {
@@ -660,59 +565,14 @@ class YtDlpDownloader(private val context: Context) {
             } else {
                 val errorMsg = response.err ?: "Unknown error"
                 Log.e(TAG, "Audio download error output: ${response.out}")
-
-                // Check for authentication errors and provide helpful message
-                val enhancedError = if (errorMsg.contains("registered users", ignoreCase = true) ||
-                    errorMsg.contains("follow this account", ignoreCase = true) ||
-                    (errorMsg.contains(
-                        "cookies",
-                        ignoreCase = true
-                    ) && errorMsg.contains("instagram", ignoreCase = true))
-                ) {
-                    "Instagram Authentication Required\n\n" +
-                            "This content requires login. To download:\n\n" +
-                            "1. Go back to the URL input screen\n" +
-                            "2. Expand 'Advanced Options'\n" +
-                            "3. Enable 'Extract cookies from browser'\n" +
-                            "4. Enter your browser name (e.g., 'chrome', 'firefox', 'edge')\n" +
-                            "5. Make sure you're logged into Instagram in that browser\n" +
-                            "6. Try downloading again\n\n" +
-                            "Technical details: $errorMsg"
-                } else {
-                    "Audio download failed: $errorMsg"
-                }
-
-                close(Exception(enhancedError))
+                close(Exception("Audio download failed: $errorMsg"))
             }
 
             close()
 
         } catch (e: Exception) {
             Log.e(TAG, "Audio download failed", e)
-
-            // Provide enhanced error message for authentication issues
-            val errorMessage = e.message ?: "Unknown error"
-            val enhancedError = if (errorMessage.contains("registered users", ignoreCase = true) ||
-                errorMessage.contains("follow this account", ignoreCase = true) ||
-                (errorMessage.contains(
-                    "cookies",
-                    ignoreCase = true
-                ) && errorMessage.contains("instagram", ignoreCase = true))
-            ) {
-                "Instagram Authentication Required\n\n" +
-                        "This content requires login. To download:\n\n" +
-                        "1. Go back to the URL input screen\n" +
-                        "2. Expand 'Advanced Options'\n" +
-                        "3. Enable 'Extract cookies from browser'\n" +
-                        "4. Enter your browser name (e.g., 'chrome', 'firefox', 'edge')\n" +
-                        "5. Make sure you're logged into Instagram in that browser\n" +
-                        "6. Try downloading again\n\n" +
-                        "Technical details: $errorMessage"
-            } else {
-                "Audio download failed: $errorMessage"
-            }
-
-            close(Exception(enhancedError))
+            close(Exception("Audio download failed: ${e.message}"))
         } finally {
             // Always unregister session on completion/error/cancellation
             synchronized(sessionsLock) {
@@ -749,14 +609,6 @@ class YtDlpDownloader(private val context: Context) {
             request.addOption("--no-playlist")
             request.addOption("--skip-download")
 
-            // Add bypass options to prevent 403 errors when fetching info
-            request.addOption(
-                "--user-agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
-            request.addOption("--extractor-args", "youtube:player_client=android,web")
-            request.addOption("--no-check-certificates")
-
             val response = YoutubeDL.getInstance().execute(request)
 
             if (response.exitCode == 0) {
@@ -781,25 +633,10 @@ class YtDlpDownloader(private val context: Context) {
                     uploader = uploader
                 )
             } else {
-                val errorMsg = response.err ?: ""
-                Log.e(TAG, "Failed to get video info: $errorMsg")
-
-                // Throw specific exception for authentication errors
-                if (errorMsg.contains("registered users", ignoreCase = true) ||
-                    errorMsg.contains("follow this account", ignoreCase = true) ||
-                    errorMsg.contains("cookies", ignoreCase = true)
-                ) {
-                    throw InstagramAuthException(
-                        "This Instagram content requires authentication. Please use the 'Extract cookies from browser' option in Advanced Options."
-                    )
-                }
-
+                Log.e(TAG, "Failed to get video info: ${response.err}")
                 null
             }
 
-        } catch (e: InstagramAuthException) {
-            // Re-throw authentication exceptions
-            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get video info", e)
             null
@@ -966,8 +803,3 @@ data class VideoInfo(
     val thumbnail: String?,
     val uploader: String?
 )
-
-/**
- * Exception thrown when Instagram content requires authentication
- */
-class InstagramAuthException(message: String) : Exception(message)

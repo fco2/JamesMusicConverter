@@ -8,11 +8,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.MusicNote
@@ -21,9 +18,6 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.VideoLibrary
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
@@ -32,10 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -45,7 +35,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -56,7 +45,6 @@ import com.chuka.jamesmusicconverter.navigation.DownloadMode
 @Composable
 fun UrlInputScreen(
     onNavigateToProgress: (String, String?, String?, String?, DownloadMode) -> Unit,
-    onNavigateToHistory: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: UrlInputViewModel = hiltViewModel()
 ) {
@@ -82,13 +70,7 @@ fun UrlInputScreen(
         if (allGranted) {
             // Permissions granted, proceed with conversion
             pendingAuthData?.let { (url, authData, downloadMode) ->
-                onNavigateToProgress(
-                    url,
-                    authData?.username,
-                    authData?.password,
-                    authData?.browser,
-                    downloadMode
-                )
+                onNavigateToProgress(url, authData?.username, authData?.password, authData?.browser, downloadMode)
                 pendingAuthData = null
             }
         } else {
@@ -105,13 +87,7 @@ fun UrlInputScreen(
         // For Android 10-12 (API 29-32), need READ_EXTERNAL_STORAGE
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // Android 13+: We're using app-specific directories, no permissions needed
-            onNavigateToProgress(
-                url,
-                authData?.username,
-                authData?.password,
-                authData?.browser,
-                downloadMode
-            )
+            onNavigateToProgress(url, authData?.username, authData?.password, authData?.browser, downloadMode)
             return
         }
 
@@ -126,13 +102,7 @@ fun UrlInputScreen(
 
         if (permissionsToRequest.isEmpty()) {
             // All permissions already granted
-            onNavigateToProgress(
-                url,
-                authData?.username,
-                authData?.password,
-                authData?.browser,
-                downloadMode
-            )
+            onNavigateToProgress(url, authData?.username, authData?.password, authData?.browser, downloadMode)
         } else {
             // Request permissions
             pendingAuthData = Triple(url, authData, downloadMode)
@@ -168,16 +138,6 @@ fun UrlInputScreen(
                         fontWeight = FontWeight.Bold
                     )
                 },
-                actions = {
-                    // History button
-                    IconButton(onClick = onNavigateToHistory) {
-                        Icon(
-                            imageVector = Icons.Default.History,
-                            contentDescription = "Download History",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
@@ -189,7 +149,6 @@ fun UrlInputScreen(
             modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -197,25 +156,12 @@ fun UrlInputScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             // App Icon
-            Surface(
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(80.dp)
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MusicNote,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
+            Icon(
+                imageVector = Icons.Default.MusicNote,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
 
             // Title
             Text(
@@ -223,17 +169,15 @@ fun UrlInputScreen(
                     DownloadMode.AUDIO -> "Convert Videos to MP3"
                     DownloadMode.VIDEO -> "Download Videos"
                 },
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                textAlign = TextAlign.Center
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onBackground
             )
 
             // Description
             Text(
                 text = when (uiState.downloadMode) {
                     DownloadMode.AUDIO -> "Enter a video URL to convert it to MP3 format"
-                    DownloadMode.VIDEO -> "Enter a video URL to download as MP4"
+                    DownloadMode.VIDEO -> "Enter a video URL to download it as MP4"
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -324,8 +268,8 @@ fun UrlInputScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 isError = uiState.isError,
-                supportingText = if (uiState.isError && uiState.errorMessage != null) {
-                    { Text(uiState.errorMessage!!) }
+                supportingText = if (uiState.isError) {
+                    { Text("Please enter a valid URL") }
                 } else null,
                 trailingIcon = {
                     IconButton(
@@ -359,38 +303,6 @@ fun UrlInputScreen(
                 ),
                 singleLine = true
             )
-
-            // Video Preview Card
-            if (uiState.isLoadingPreview) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            "Fetching video information...",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-            }
-
-            uiState.videoPreview?.let { preview ->
-                VideoPreviewCard(
-                    preview = preview,
-                    downloadMode = uiState.downloadMode
-                )
-            }
 
             // Advanced Options
             Card(
@@ -520,20 +432,11 @@ fun UrlInputScreen(
                     .height(52.dp),
                 enabled = uiState.urlTextFieldValue.text.isNotBlank()
             ) {
-                val platform = uiState.videoPreview?.platform
-                val buttonText = when {
-                    platform != null && uiState.downloadMode == DownloadMode.VIDEO ->
-                        "Download ${platform.getDisplayName()} Video"
-
-                    platform != null && uiState.downloadMode == DownloadMode.AUDIO ->
-                        "Convert ${platform.getDisplayName()} to MP3"
-
-                    uiState.downloadMode == DownloadMode.AUDIO -> "Convert to MP3"
-                    else -> "Download Video"
-                }
-
                 Text(
-                    text = buttonText,
+                    text = when (uiState.downloadMode) {
+                        DownloadMode.AUDIO -> "Convert to MP3"
+                        DownloadMode.VIDEO -> "Download Video"
+                    },
                     style = MaterialTheme.typography.titleMedium
                 )
             }
@@ -566,148 +469,5 @@ fun UrlInputScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
         }
-    }
-}
-
-/**
- * Composable to show video preview with thumbnail and metadata
- */
-@Composable
-private fun VideoPreviewCard(
-    preview: VideoPreview,
-    downloadMode: DownloadMode,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Thumbnail
-            if (preview.thumbnail != null) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(preview.thumbnail)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = "Video thumbnail",
-                    modifier = Modifier
-                        .size(120.dp, 90.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                // Fallback icon if no thumbnail
-                Box(
-                    modifier = Modifier
-                        .size(120.dp, 90.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .padding(8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (downloadMode == DownloadMode.VIDEO)
-                            Icons.Default.VideoLibrary
-                        else
-                            Icons.Default.MusicNote,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                    )
-                }
-            }
-
-            // Video information
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                // Platform badge
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Text(
-                        text = preview.platform.getDisplayName(),
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                // Title
-                Text(
-                    text = preview.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                // Uploader
-                if (preview.uploader != null) {
-                    Text(
-                        text = preview.uploader,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                // Duration
-                if (preview.duration > 0) {
-                    Text(
-                        text = formatDuration(preview.duration),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                // Success indicator
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Ready",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "Ready to download",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * Formats duration in seconds to readable string (e.g., "3:45" or "1:23:45")
- */
-private fun formatDuration(seconds: Long): String {
-    val hours = seconds / 3600
-    val minutes = (seconds % 3600) / 60
-    val secs = seconds % 60
-
-    return if (hours > 0) {
-        String.format("%d:%02d:%02d", hours, minutes, secs)
-    } else {
-        String.format("%d:%02d", minutes, secs)
     }
 }
