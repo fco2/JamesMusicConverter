@@ -58,6 +58,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideConversionRepository(
+        @ApplicationContext context: Context,
         videoDownloader: VideoDownloader,
         audioExtractor: AudioExtractor,
         notificationService: DownloadNotificationService,
@@ -65,6 +66,7 @@ object AppModule {
         thumbnailManager: ThumbnailManager
     ): ConversionRepository {
         return ConversionRepositoryImpl(
+            context = context,
             videoDownloader = videoDownloader,
             audioExtractor = audioExtractor,
             notificationService = notificationService,

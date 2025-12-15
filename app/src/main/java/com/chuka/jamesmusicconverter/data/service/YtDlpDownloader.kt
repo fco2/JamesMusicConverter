@@ -417,24 +417,54 @@ class YtDlpDownloader(private val context: Context) {
                 Log.e(TAG, "Full error output: ${response.out}")
 
                 // Check for authentication errors and provide helpful message
-                val enhancedError = if (errorMsg.contains("registered users", ignoreCase = true) ||
+                val enhancedError = when {
+                    errorMsg.contains("private", ignoreCase = true) ||
+                    errorMsg.contains("registered users", ignoreCase = true) ||
                     errorMsg.contains("follow this account", ignoreCase = true) ||
-                    (errorMsg.contains(
-                        "cookies",
-                        ignoreCase = true
-                    ) && errorMsg.contains("instagram", ignoreCase = true))
-                ) {
-                    "Instagram Authentication Required\n\n" +
-                            "This content requires login. To download:\n\n" +
-                            "1. Go back to the URL input screen\n" +
-                            "2. Expand 'Advanced Options'\n" +
-                            "3. Enable 'Extract cookies from browser'\n" +
-                            "4. Enter your browser name (e.g., 'chrome', 'firefox', 'edge')\n" +
-                            "5. Make sure you're logged into Instagram in that browser\n" +
-                            "6. Try downloading again\n\n" +
-                            "Technical details: $errorMsg"
-                } else {
-                    "Video download failed: $errorMsg"
+                    errorMsg.contains("login required", ignoreCase = true) ||
+                    errorMsg.contains("authentication", ignoreCase = true) ||
+                    (errorMsg.contains("cookies", ignoreCase = true) &&
+                     (errorMsg.contains("instagram", ignoreCase = true) ||
+                      errorMsg.contains("twitter", ignoreCase = true) ||
+                      errorMsg.contains("facebook", ignoreCase = true))) -> {
+
+                        val platform = when {
+                            errorMsg.contains("instagram", ignoreCase = true) -> "Instagram"
+                            errorMsg.contains("twitter", ignoreCase = true) ||
+                            errorMsg.contains("x.com", ignoreCase = true) -> "Twitter/X"
+                            errorMsg.contains("facebook", ignoreCase = true) -> "Facebook"
+                            else -> "This platform"
+                        }
+
+                        "🔒 Private Content - Authentication Required\n\n" +
+                                "$platform content requires you to be logged in. " +
+                                "This app can automatically extract your login session from your browser.\n\n" +
+                                "✅ Quick Setup (30 seconds):\n\n" +
+                                "1. Make sure you're logged into $platform in your browser (Chrome, Firefox, or Edge)\n\n" +
+                                "2. Go back to the URL input screen\n\n" +
+                                "3. Tap 'Advanced Options' to expand\n\n" +
+                                "4. Enable 'Extract cookies from browser'\n\n" +
+                                "5. Enter your browser name:\n" +
+                                "   • For Chrome: type 'chrome'\n" +
+                                "   • For Firefox: type 'firefox'\n" +
+                                "   • For Edge: type 'edge'\n\n" +
+                                "6. Try downloading again\n\n" +
+                                "ℹ️ This is safe - the app only reads your $platform session cookie from your browser, " +
+                                "no passwords are accessed or stored.\n\n" +
+                                "Technical error: $errorMsg"
+                    }
+                    errorMsg.contains("403", ignoreCase = true) ||
+                    errorMsg.contains("forbidden", ignoreCase = true) -> {
+                        "🚫 Access Denied (403 Error)\n\n" +
+                                "The video server is blocking the download request. This can happen with:\n\n" +
+                                "• Private or restricted content\n" +
+                                "• Geo-blocked content\n" +
+                                "• Platform anti-bot measures\n\n" +
+                                "Try using 'Extract cookies from browser' in Advanced Options if you can view this content " +
+                                "in your web browser.\n\n" +
+                                "Technical error: $errorMsg"
+                    }
+                    else -> "Video download failed: $errorMsg"
                 }
 
                 close(Exception(enhancedError))
@@ -447,24 +477,54 @@ class YtDlpDownloader(private val context: Context) {
 
             // Provide enhanced error message for authentication issues
             val errorMessage = e.message ?: "Unknown error"
-            val enhancedError = if (errorMessage.contains("registered users", ignoreCase = true) ||
+            val enhancedError = when {
+                errorMessage.contains("private", ignoreCase = true) ||
+                errorMessage.contains("registered users", ignoreCase = true) ||
                 errorMessage.contains("follow this account", ignoreCase = true) ||
-                (errorMessage.contains(
-                    "cookies",
-                    ignoreCase = true
-                ) && errorMessage.contains("instagram", ignoreCase = true))
-            ) {
-                "Instagram Authentication Required\n\n" +
-                        "This content requires login. To download:\n\n" +
-                        "1. Go back to the URL input screen\n" +
-                        "2. Expand 'Advanced Options'\n" +
-                        "3. Enable 'Extract cookies from browser'\n" +
-                        "4. Enter your browser name (e.g., 'chrome', 'firefox', 'edge')\n" +
-                        "5. Make sure you're logged into Instagram in that browser\n" +
-                        "6. Try downloading again\n\n" +
-                        "Technical details: $errorMessage"
-            } else {
-                "Video download failed: $errorMessage"
+                errorMessage.contains("login required", ignoreCase = true) ||
+                errorMessage.contains("authentication", ignoreCase = true) ||
+                (errorMessage.contains("cookies", ignoreCase = true) &&
+                 (errorMessage.contains("instagram", ignoreCase = true) ||
+                  errorMessage.contains("twitter", ignoreCase = true) ||
+                  errorMessage.contains("facebook", ignoreCase = true))) -> {
+
+                    val platform = when {
+                        errorMessage.contains("instagram", ignoreCase = true) -> "Instagram"
+                        errorMessage.contains("twitter", ignoreCase = true) ||
+                        errorMessage.contains("x.com", ignoreCase = true) -> "Twitter/X"
+                        errorMessage.contains("facebook", ignoreCase = true) -> "Facebook"
+                        else -> "This platform"
+                    }
+
+                    "🔒 Private Content - Authentication Required\n\n" +
+                            "$platform content requires you to be logged in. " +
+                            "This app can automatically extract your login session from your browser.\n\n" +
+                            "✅ Quick Setup (30 seconds):\n\n" +
+                            "1. Make sure you're logged into $platform in your browser (Chrome, Firefox, or Edge)\n\n" +
+                            "2. Go back to the URL input screen\n\n" +
+                            "3. Tap 'Advanced Options' to expand\n\n" +
+                            "4. Enable 'Extract cookies from browser'\n\n" +
+                            "5. Enter your browser name:\n" +
+                            "   • For Chrome: type 'chrome'\n" +
+                            "   • For Firefox: type 'firefox'\n" +
+                            "   • For Edge: type 'edge'\n\n" +
+                            "6. Try downloading again\n\n" +
+                            "ℹ️ This is safe - the app only reads your $platform session cookie from your browser, " +
+                            "no passwords are accessed or stored.\n\n" +
+                            "Technical error: $errorMessage"
+                }
+                errorMessage.contains("403", ignoreCase = true) ||
+                errorMessage.contains("forbidden", ignoreCase = true) -> {
+                    "🚫 Access Denied (403 Error)\n\n" +
+                            "The video server is blocking the download request. This can happen with:\n\n" +
+                            "• Private or restricted content\n" +
+                            "• Geo-blocked content\n" +
+                            "• Platform anti-bot measures\n\n" +
+                            "Try using 'Extract cookies from browser' in Advanced Options if you can view this content " +
+                            "in your web browser.\n\n" +
+                            "Technical error: $errorMessage"
+                }
+                else -> "Video download failed: $errorMessage"
             }
 
             close(Exception(enhancedError))
@@ -662,24 +722,54 @@ class YtDlpDownloader(private val context: Context) {
                 Log.e(TAG, "Audio download error output: ${response.out}")
 
                 // Check for authentication errors and provide helpful message
-                val enhancedError = if (errorMsg.contains("registered users", ignoreCase = true) ||
+                val enhancedError = when {
+                    errorMsg.contains("private", ignoreCase = true) ||
+                    errorMsg.contains("registered users", ignoreCase = true) ||
                     errorMsg.contains("follow this account", ignoreCase = true) ||
-                    (errorMsg.contains(
-                        "cookies",
-                        ignoreCase = true
-                    ) && errorMsg.contains("instagram", ignoreCase = true))
-                ) {
-                    "Instagram Authentication Required\n\n" +
-                            "This content requires login. To download:\n\n" +
-                            "1. Go back to the URL input screen\n" +
-                            "2. Expand 'Advanced Options'\n" +
-                            "3. Enable 'Extract cookies from browser'\n" +
-                            "4. Enter your browser name (e.g., 'chrome', 'firefox', 'edge')\n" +
-                            "5. Make sure you're logged into Instagram in that browser\n" +
-                            "6. Try downloading again\n\n" +
-                            "Technical details: $errorMsg"
-                } else {
-                    "Audio download failed: $errorMsg"
+                    errorMsg.contains("login required", ignoreCase = true) ||
+                    errorMsg.contains("authentication", ignoreCase = true) ||
+                    (errorMsg.contains("cookies", ignoreCase = true) &&
+                     (errorMsg.contains("instagram", ignoreCase = true) ||
+                      errorMsg.contains("twitter", ignoreCase = true) ||
+                      errorMsg.contains("facebook", ignoreCase = true))) -> {
+
+                        val platform = when {
+                            errorMsg.contains("instagram", ignoreCase = true) -> "Instagram"
+                            errorMsg.contains("twitter", ignoreCase = true) ||
+                            errorMsg.contains("x.com", ignoreCase = true) -> "Twitter/X"
+                            errorMsg.contains("facebook", ignoreCase = true) -> "Facebook"
+                            else -> "This platform"
+                        }
+
+                        "🔒 Private Content - Authentication Required\n\n" +
+                                "$platform content requires you to be logged in. " +
+                                "This app can automatically extract your login session from your browser.\n\n" +
+                                "✅ Quick Setup (30 seconds):\n\n" +
+                                "1. Make sure you're logged into $platform in your browser (Chrome, Firefox, or Edge)\n\n" +
+                                "2. Go back to the URL input screen\n\n" +
+                                "3. Tap 'Advanced Options' to expand\n\n" +
+                                "4. Enable 'Extract cookies from browser'\n\n" +
+                                "5. Enter your browser name:\n" +
+                                "   • For Chrome: type 'chrome'\n" +
+                                "   • For Firefox: type 'firefox'\n" +
+                                "   • For Edge: type 'edge'\n\n" +
+                                "6. Try downloading again\n\n" +
+                                "ℹ️ This is safe - the app only reads your $platform session cookie from your browser, " +
+                                "no passwords are accessed or stored.\n\n" +
+                                "Technical error: $errorMsg"
+                    }
+                    errorMsg.contains("403", ignoreCase = true) ||
+                    errorMsg.contains("forbidden", ignoreCase = true) -> {
+                        "🚫 Access Denied (403 Error)\n\n" +
+                                "The video server is blocking the download request. This can happen with:\n\n" +
+                                "• Private or restricted content\n" +
+                                "• Geo-blocked content\n" +
+                                "• Platform anti-bot measures\n\n" +
+                                "Try using 'Extract cookies from browser' in Advanced Options if you can view this content " +
+                                "in your web browser.\n\n" +
+                                "Technical error: $errorMsg"
+                    }
+                    else -> "Audio download failed: $errorMsg"
                 }
 
                 close(Exception(enhancedError))
@@ -692,24 +782,54 @@ class YtDlpDownloader(private val context: Context) {
 
             // Provide enhanced error message for authentication issues
             val errorMessage = e.message ?: "Unknown error"
-            val enhancedError = if (errorMessage.contains("registered users", ignoreCase = true) ||
+            val enhancedError = when {
+                errorMessage.contains("private", ignoreCase = true) ||
+                errorMessage.contains("registered users", ignoreCase = true) ||
                 errorMessage.contains("follow this account", ignoreCase = true) ||
-                (errorMessage.contains(
-                    "cookies",
-                    ignoreCase = true
-                ) && errorMessage.contains("instagram", ignoreCase = true))
-            ) {
-                "Instagram Authentication Required\n\n" +
-                        "This content requires login. To download:\n\n" +
-                        "1. Go back to the URL input screen\n" +
-                        "2. Expand 'Advanced Options'\n" +
-                        "3. Enable 'Extract cookies from browser'\n" +
-                        "4. Enter your browser name (e.g., 'chrome', 'firefox', 'edge')\n" +
-                        "5. Make sure you're logged into Instagram in that browser\n" +
-                        "6. Try downloading again\n\n" +
-                        "Technical details: $errorMessage"
-            } else {
-                "Audio download failed: $errorMessage"
+                errorMessage.contains("login required", ignoreCase = true) ||
+                errorMessage.contains("authentication", ignoreCase = true) ||
+                (errorMessage.contains("cookies", ignoreCase = true) &&
+                 (errorMessage.contains("instagram", ignoreCase = true) ||
+                  errorMessage.contains("twitter", ignoreCase = true) ||
+                  errorMessage.contains("facebook", ignoreCase = true))) -> {
+
+                    val platform = when {
+                        errorMessage.contains("instagram", ignoreCase = true) -> "Instagram"
+                        errorMessage.contains("twitter", ignoreCase = true) ||
+                        errorMessage.contains("x.com", ignoreCase = true) -> "Twitter/X"
+                        errorMessage.contains("facebook", ignoreCase = true) -> "Facebook"
+                        else -> "This platform"
+                    }
+
+                    "🔒 Private Content - Authentication Required\n\n" +
+                            "$platform content requires you to be logged in. " +
+                            "This app can automatically extract your login session from your browser.\n\n" +
+                            "✅ Quick Setup (30 seconds):\n\n" +
+                            "1. Make sure you're logged into $platform in your browser (Chrome, Firefox, or Edge)\n\n" +
+                            "2. Go back to the URL input screen\n\n" +
+                            "3. Tap 'Advanced Options' to expand\n\n" +
+                            "4. Enable 'Extract cookies from browser'\n\n" +
+                            "5. Enter your browser name:\n" +
+                            "   • For Chrome: type 'chrome'\n" +
+                            "   • For Firefox: type 'firefox'\n" +
+                            "   • For Edge: type 'edge'\n\n" +
+                            "6. Try downloading again\n\n" +
+                            "ℹ️ This is safe - the app only reads your $platform session cookie from your browser, " +
+                            "no passwords are accessed or stored.\n\n" +
+                            "Technical error: $errorMessage"
+                }
+                errorMessage.contains("403", ignoreCase = true) ||
+                errorMessage.contains("forbidden", ignoreCase = true) -> {
+                    "🚫 Access Denied (403 Error)\n\n" +
+                            "The video server is blocking the download request. This can happen with:\n\n" +
+                            "• Private or restricted content\n" +
+                            "• Geo-blocked content\n" +
+                            "• Platform anti-bot measures\n\n" +
+                            "Try using 'Extract cookies from browser' in Advanced Options if you can view this content " +
+                            "in your web browser.\n\n" +
+                            "Technical error: $errorMessage"
+                }
+                else -> "Audio download failed: $errorMessage"
             }
 
             close(Exception(enhancedError))

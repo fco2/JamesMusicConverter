@@ -2,6 +2,7 @@ package com.chuka.jamesmusicconverter.domain.repository
 
 import android.content.Context
 import com.chuka.jamesmusicconverter.data.service.AudioExtractor
+import com.chuka.jamesmusicconverter.data.service.DownloadForegroundService
 import com.chuka.jamesmusicconverter.data.service.DownloadNotificationService
 import com.chuka.jamesmusicconverter.data.service.VideoDownloader
 import com.chuka.jamesmusicconverter.domain.model.ConversionProgress
@@ -9,6 +10,8 @@ import com.chuka.jamesmusicconverter.domain.model.ConversionResult
 import com.chuka.jamesmusicconverter.navigation.DownloadMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onStart
 import java.io.File
 
 /**
@@ -34,6 +37,7 @@ interface ConversionRepository {
 }
 
 class ConversionRepositoryImpl(
+    private val context: Context,
     private val videoDownloader: VideoDownloader,
     private val audioExtractor: AudioExtractor,
     private val notificationService: DownloadNotificationService,
@@ -69,6 +73,8 @@ class ConversionRepositoryImpl(
         }
 
         try {
+            // Start foreground service to keep process alive during download
+            DownloadForegroundService.startService(context)
             var downloadedFilePath: String? = null
             var videoTitle: String? = null
             var thumbnailUrl: String? = null
@@ -85,10 +91,19 @@ class ConversionRepositoryImpl(
                     ).collect { downloadProgress ->
                         // Ensure progress is never negative
                         val normalizedProgress = downloadProgress.progress.coerceAtLeast(0f)
-                        emit(ConversionProgress(
+                        val progress = ConversionProgress(
                             percentage = normalizedProgress * 0.8f,
                             statusMessage = downloadProgress.message
-                        ))
+                        )
+
+                        // Update foreground service notification
+                        DownloadForegroundService.updateProgress(
+                            context,
+                            downloadProgress.message,
+                            normalizedProgress * 0.8f
+                        )
+
+                        emit(progress)
 
                         if (downloadProgress.filePath != null) {
                             downloadedFilePath = downloadProgress.filePath
@@ -106,10 +121,19 @@ class ConversionRepositoryImpl(
                         audioExtractor.extractAudioToMp3(downloadedFilePath!!).collect { extractionProgress ->
                             // Ensure progress is never negative
                             val normalizedProgress = extractionProgress.progress.coerceAtLeast(0f)
-                            emit(ConversionProgress(
+                            val progress = ConversionProgress(
                                 percentage = 0.8f + (normalizedProgress * 0.2f),
                                 statusMessage = extractionProgress.message
-                            ))
+                            )
+
+                            // Update foreground service notification
+                            DownloadForegroundService.updateProgress(
+                                context,
+                                extractionProgress.message,
+                                0.8f + (normalizedProgress * 0.2f)
+                            )
+
+                            emit(progress)
 
                             // Store the result when extraction is complete
                             if (extractionProgress.outputFilePath != null) {
@@ -159,10 +183,19 @@ class ConversionRepositoryImpl(
                     ).collect { downloadProgress ->
                         // Ensure progress is never negative
                         val normalizedProgress = downloadProgress.progress.coerceAtLeast(0f)
-                        emit(ConversionProgress(
+                        val progress = ConversionProgress(
                             percentage = normalizedProgress,
                             statusMessage = downloadProgress.message
-                        ))
+                        )
+
+                        // Update foreground service notification
+                        DownloadForegroundService.updateProgress(
+                            context,
+                            downloadProgress.message,
+                            normalizedProgress
+                        )
+
+                        emit(progress)
 
                         if (downloadProgress.filePath != null) {
                             downloadedFilePath = downloadProgress.filePath
@@ -218,10 +251,17 @@ class ConversionRepositoryImpl(
                     }
                 }
             }
+
+            // Stop foreground service when download completes successfully
+            DownloadForegroundService.stopService(context)
         } catch (e: kotlinx.coroutines.CancellationException) {
+            // Stop foreground service on cancellation
+            DownloadForegroundService.stopService(context)
             // Re-throw CancellationException as-is so it can be properly handled by the ViewModel
             throw e
         } catch (e: Exception) {
+            // Stop foreground service on error
+            DownloadForegroundService.stopService(context)
             throw Exception("Download failed: ${e.message}")
         }
     }
@@ -246,6 +286,8 @@ class ConversionRepositoryImpl(
         }
 
         try {
+            // Start foreground service to keep process alive during download
+            DownloadForegroundService.startService(context)
             var downloadedFilePath: String? = null
             var videoTitle: String? = null
             var thumbnailUrl: String? = null
@@ -259,10 +301,19 @@ class ConversionRepositoryImpl(
             ).collect { downloadProgress ->
                 // Ensure progress is never negative
                 val normalizedProgress = downloadProgress.progress.coerceAtLeast(0f)
-                emit(ConversionProgress(
+                val progress = ConversionProgress(
                     percentage = normalizedProgress * 0.8f,
                     statusMessage = downloadProgress.message
-                ))
+                )
+
+                // Update foreground service notification
+                DownloadForegroundService.updateProgress(
+                    context,
+                    downloadProgress.message,
+                    normalizedProgress * 0.8f
+                )
+
+                emit(progress)
 
                 if (downloadProgress.filePath != null) {
                     downloadedFilePath = downloadProgress.filePath
@@ -280,10 +331,19 @@ class ConversionRepositoryImpl(
                 audioExtractor.extractAudioToMp3(downloadedFilePath!!).collect { extractionProgress ->
                     // Ensure progress is never negative
                     val normalizedProgress = extractionProgress.progress.coerceAtLeast(0f)
-                    emit(ConversionProgress(
+                    val progress = ConversionProgress(
                         percentage = 0.8f + (normalizedProgress * 0.2f),
                         statusMessage = extractionProgress.message
-                    ))
+                    )
+
+                    // Update foreground service notification
+                    DownloadForegroundService.updateProgress(
+                        context,
+                        extractionProgress.message,
+                        0.8f + (normalizedProgress * 0.2f)
+                    )
+
+                    emit(progress)
 
                     // Store the result when extraction is complete
                     if (extractionProgress.outputFilePath != null) {
@@ -317,10 +377,17 @@ class ConversionRepositoryImpl(
             } else {
                 throw Exception("Failed to download video")
             }
+
+            // Stop foreground service when conversion completes successfully
+            DownloadForegroundService.stopService(context)
         } catch (e: kotlinx.coroutines.CancellationException) {
+            // Stop foreground service on cancellation
+            DownloadForegroundService.stopService(context)
             // Re-throw CancellationException as-is so it can be properly handled by the ViewModel
             throw e
         } catch (e: Exception) {
+            // Stop foreground service on error
+            DownloadForegroundService.stopService(context)
             throw Exception("Conversion failed: ${e.message}")
         }
     }

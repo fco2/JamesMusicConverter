@@ -15,20 +15,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Modern professional light theme with improved colors
+// Muted slate blue light theme (easy on the eyes)
 private val AppColorScheme = lightColorScheme(
-    primary = NavyBlue,
+    primary = SlateBlue,
     onPrimary = White,
-    primaryContainer = LightBlue.copy(alpha = 0.15f),
-    onPrimaryContainer = NavyBlue,
+    primaryContainer = SlateBlueLight.copy(alpha = 0.15f),
+    onPrimaryContainer = SlateBlueDark,
 
-    secondary = LightBlue,
+    secondary = SlateBlueDark,
     onSecondary = White,
-    secondaryContainer = LightBlue.copy(alpha = 0.2f),
-    onSecondaryContainer = NavyBlue,
+    secondaryContainer = SlateBlueLight.copy(alpha = 0.2f),
+    onSecondaryContainer = SlateBlueDark,
 
-    tertiary = Purple40,
-    onTertiary = White,
+    tertiary = SlateBlueLight,
+    onTertiary = TextPrimary,
 
     background = BackgroundGray,
     onBackground = TextPrimary,
@@ -60,8 +60,8 @@ fun JamesMusicConverterTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = NavyBlue.toArgb()
-            window.navigationBarColor = NavyBlue.toArgb()
+            window.statusBarColor = SlateBlue.toArgb()
+            window.navigationBarColor = SlateBlue.toArgb()
 
             // Set status bar icons to white (light = false means white icons)
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false

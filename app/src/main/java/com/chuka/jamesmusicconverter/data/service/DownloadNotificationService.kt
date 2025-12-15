@@ -83,7 +83,8 @@ class DownloadNotificationService(private val context: Context) {
 
             // Build notification
             val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setSmallIcon(R.drawable.ic_notification_music)
+                .setColor(0xFF607D8B.toInt()) // Muted slate blue to match launcher icon
                 .setContentTitle("Download Complete")
                 .setContentText("$fileName ($fileSizeStr)")
                 .setStyle(

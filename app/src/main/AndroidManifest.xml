@@ -39,6 +39,12 @@
             </intent-filter>
         </activity>
 
+        <!-- Foreground service for background downloads -->
+        <service
+            android:name=".data.service.DownloadForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
         <!-- FileProvider for sharing files -->
         <provider
             android:name="androidx.core.content.FileProvider"

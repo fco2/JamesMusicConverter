@@ -4,48 +4,61 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Music Note -->
     <group android:translateX="54" android:translateY="54">
-        <!-- Note stem -->
-        <path
-            android:pathData="M 8,12 L 8,-18 L 12,-18 L 12,12 Z"
-            android:fillColor="#FFFFFF" />
 
-        <!-- Note head (bottom) -->
+        <!-- Outer circle background (subtle depth) -->
         <path
-            android:pathData="M 2,12 C 2,16 4,18 8,18 C 12,18 14,16 14,12 C 14,8 12,6 8,6 C 4,6 2,8 2,12 Z"
-            android:fillColor="#FFFFFF" />
+            android:pathData="M 0,0 m -28,0 a 28,28 0 1,0 56,0 a 28,28 0 1,0 -56,0"
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.15" />
 
-        <!-- Note flag/beam -->
+        <!-- Main circle background -->
         <path
-            android:pathData="M 12,-18 C 12,-18 20,-16 20,-10 C 20,-6 16,-4 12,-2 Z"
-            android:fillColor="#FFFFFF" />
+            android:pathData="M 0,0 m -24,0 a 24,24 0 1,0 48,0 a 24,24 0 1,0 -48,0"
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.95" />
 
-        <!-- Second music note (smaller, behind) -->
-        <path
-            android:pathData="M -6,16 L -6,0 L -3,0 L -3,16 Z"
-            android:fillColor="#E8E8E8"
-            android:fillAlpha="0.8" />
+        <!-- Main music note (larger, centered) -->
+        <group android:translateX="-5" android:translateY="-2">
+            <!-- Note stem -->
+            <path
+                android:pathData="M 8,12 L 8,-14 L 11,-14 L 11,12 Z"
+                android:fillColor="#607D8B" />
 
-        <path
-            android:pathData="M -10,16 C -10,19 -8,21 -5,21 C -2,21 0,19 0,16 C 0,13 -2,11 -5,11 C -8,11 -10,13 -10,16 Z"
-            android:fillColor="#E8E8E8"
-            android:fillAlpha="0.8" />
+            <!-- Note head (ellipse) -->
+            <path
+                android:pathData="M 1,12 C 1,16.5 4,19 8,19 C 12,19 15,16.5 15,12 C 15,7.5 12,5 8,5 C 4,5 1,7.5 1,12 Z"
+                android:fillColor="#607D8B" />
 
-        <!-- Sound waves -->
-        <path
-            android:pathData="M 22,-8 C 24,-6 26,-4 26,0 C 26,4 24,6 22,8"
-            android:strokeColor="#FFFFFF"
-            android:strokeWidth="2"
-            android:strokeLineCap="round"
-            android:fillColor="@android:color/transparent" />
+            <!-- Note flag/beam (more elegant curve) -->
+            <path
+                android:pathData="M 11,-14 C 11,-14 20,-12 20,-6 C 20,-2 16,0 11,2 Z"
+                android:fillColor="#607D8B" />
+        </group>
 
+        <!-- Decorative sound waves (right side) -->
+        <group android:translateX="15" android:translateY="-1">
+            <path
+                android:pathData="M 0,-8 C 2,-6 4,-3 4,1 C 4,5 2,8 0,10"
+                android:strokeColor="#607D8B"
+                android:strokeWidth="2"
+                android:strokeLineCap="round"
+                android:fillColor="@android:color/transparent"
+                android:strokeAlpha="0.8" />
+
+            <path
+                android:pathData="M 5,-12 C 8,-9 11,-5 11,1 C 11,7 8,11 5,14"
+                android:strokeColor="#607D8B"
+                android:strokeWidth="2"
+                android:strokeLineCap="round"
+                android:fillColor="@android:color/transparent"
+                android:strokeAlpha="0.5" />
+        </group>
+
+        <!-- Small accent dot (bottom right) -->
         <path
-            android:pathData="M 26,-12 C 29,-9 32,-5 32,0 C 32,5 29,9 26,12"
-            android:strokeColor="#FFFFFF"
-            android:strokeWidth="2"
-            android:strokeLineCap="round"
-            android:strokeAlpha="0.7"
-            android:fillColor="@android:color/transparent" />
+            android:pathData="M 16,18 m -2,0 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0"
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.4" />
     </group>
 </vector>
