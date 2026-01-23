@@ -19,7 +19,12 @@ data class DownloadHistory(
     val duration: Long,
     val uploader: String?,
     val downloadedAt: Long,
-    val fileExists: Boolean
+    val fileExists: Boolean,
+    // Carousel/Playlist tracking fields
+    val isPartOfCarousel: Boolean = false,
+    val carouselGroupId: String? = null,
+    val carouselPosition: Int? = null,
+    val carouselTotal: Int? = null
 ) {
     /**
      * Format file size to human readable string
@@ -77,5 +82,14 @@ data class DownloadHistory(
      */
     fun getThumbnailToDisplay(): String? {
         return localThumbnailPath ?: remoteThumbnailUrl
+    }
+
+    /**
+     * Get formatted carousel position (e.g., "2/5")
+     */
+    fun getCarouselPositionText(): String? {
+        return if (isPartOfCarousel && carouselPosition != null && carouselTotal != null) {
+            "$carouselPosition/$carouselTotal"
+        } else null
     }
 }

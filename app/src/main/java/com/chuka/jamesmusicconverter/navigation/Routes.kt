@@ -21,6 +21,12 @@ object UrlInputRoute : NavKey
 object DownloadHistoryRoute : NavKey
 
 /**
+ * Download queue screen
+ */
+@Serializable
+object DownloadQueueRoute : NavKey
+
+/**
  * Download mode enum for serialization
  */
 @Serializable

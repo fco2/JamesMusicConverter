@@ -927,15 +927,192 @@ class YtDlpDownloader(private val context: Context) {
     }
 
     /**
-     * Simple JSON field extractor using regex
+     * Get playlist/carousel information - returns list of all videos
+     * Works for YouTube playlists, Instagram carousels, etc.
+     */
+    suspend fun getPlaylistInfo(url: String): PlaylistInfo? = withContext(Dispatchers.IO) {
+        try {
+            ensureInitialized()
+
+            Log.d(TAG, "Fetching playlist info for: $url")
+
+            val request = YoutubeDLRequest(url)
+            request.addOption("--flat-playlist")
+            request.addOption("--dump-json")
+            request.addOption("--skip-download")
+
+            // Add bypass options
+            request.addOption(
+                "--user-agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            request.addOption("--extractor-args", "youtube:player_client=android,web")
+            request.addOption("--no-check-certificates")
+
+            val response = YoutubeDL.getInstance().execute(request)
+
+            if (response.exitCode == 0) {
+                val jsonLines = response.out.lines().filter { it.trim().startsWith("{") }
+                
+                if (jsonLines.size > 1) {
+                    // Multiple videos found - it's a playlist/carousel
+                    val videos = jsonLines.mapNotNull { jsonLine ->
+                        try {
+                            val title = extractFromJson(jsonLine, "title") ?: extractFromJson(jsonLine, "id")
+                            val thumbnail = extractFromJson(jsonLine, "thumbnail")
+                            val durationStr = extractFromJson(jsonLine, "duration")
+                            val duration = durationStr?.toLongOrNull() ?: 0L
+                            val videoUrl = extractFromJson(jsonLine, "url") ?: extractFromJson(jsonLine, "webpage_url")
+
+                            if (title != null && videoUrl != null) {
+                                PlaylistVideoInfo(
+                                    title = title,
+                                    url = videoUrl,
+                                    thumbnail = thumbnail,
+                                    duration = duration
+                                )
+                            } else null
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to parse video entry: ${e.message}")
+                            null
+                        }
+                    }
+
+                    Log.d(TAG, "Found ${videos.size} videos in playlist/carousel")
+
+                    // Get playlist title (first entry may have playlist title)
+                    val playlistTitle = extractFromJson(jsonLines.first(), "playlist_title")
+                        ?: extractFromJson(jsonLines.first(), "title")
+                        ?: "Playlist"
+
+                    PlaylistInfo(
+                        title = playlistTitle,
+                        videoCount = videos.size,
+                        videos = videos
+                    )
+                } else if (jsonLines.size == 1) {
+                    // Single video - return as single-item playlist
+                    val jsonLine = jsonLines.first()
+                    val title = extractFromJson(jsonLine, "title") ?: "Unknown Title"
+                    val thumbnail = extractFromJson(jsonLine, "thumbnail")
+                    val durationStr = extractFromJson(jsonLine, "duration")
+                    val duration = durationStr?.toLongOrNull() ?: 0L
+
+                    PlaylistInfo(
+                        title = title,
+                        videoCount = 1,
+                        videos = listOf(
+                            PlaylistVideoInfo(
+                                title = title,
+                                url = url,
+                                thumbnail = thumbnail,
+                                duration = duration
+                            )
+                        )
+                    )
+                } else {
+                    null
+                }
+            } else {
+                Log.e(TAG, "Failed to get playlist info: ${response.err}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting playlist info", e)
+            null
+        }
+    }
+
+    /**
+     * JSON field extractor that handles escaped characters and Unicode
      */
     private fun extractFromJson(json: String, fieldName: String): String? {
         return try {
-            val pattern = """"$fieldName":\s*"([^"]*)"""".toRegex()
-            pattern.find(json)?.groupValues?.get(1)
+            // First try to find the field with a string value (handles escaped chars)
+            val stringPattern = """"$fieldName"\s*:\s*"((?:[^"\\]|\\.)*)"""".toRegex()
+            val stringMatch = stringPattern.find(json)
+            if (stringMatch != null) {
+                val rawValue = stringMatch.groupValues[1]
+                // Decode JSON escape sequences
+                return decodeJsonString(rawValue)
+            }
+
+            // Try numeric value (no quotes)
+            val numericPattern = """"$fieldName"\s*:\s*([0-9.]+)""".toRegex()
+            val numericMatch = numericPattern.find(json)
+            if (numericMatch != null) {
+                return numericMatch.groupValues[1]
+            }
+
+            null
         } catch (e: Exception) {
+            Log.w(TAG, "Error extracting $fieldName from JSON: ${e.message}")
             null
         }
+    }
+
+    /**
+     * Decode JSON escape sequences in a string
+     */
+    private fun decodeJsonString(input: String): String {
+        val sb = StringBuilder()
+        var i = 0
+        while (i < input.length) {
+            if (input[i] == '\\' && i + 1 < input.length) {
+                when (input[i + 1]) {
+                    '"' -> { sb.append('"'); i += 2 }
+                    '\\' -> { sb.append('\\'); i += 2 }
+                    '/' -> { sb.append('/'); i += 2 }
+                    'b' -> { sb.append('\b'); i += 2 }
+                    'f' -> { sb.append('\u000C'); i += 2 }
+                    'n' -> { sb.append('\n'); i += 2 }
+                    'r' -> { sb.append('\r'); i += 2 }
+                    't' -> { sb.append('\t'); i += 2 }
+                    'u' -> {
+                        // Unicode escape \uXXXX
+                        if (i + 5 < input.length) {
+                            try {
+                                val hex = input.substring(i + 2, i + 6)
+                                val codePoint = hex.toInt(16)
+                                sb.append(codePoint.toChar())
+                                i += 6
+                            } catch (e: Exception) {
+                                sb.append(input[i])
+                                i++
+                            }
+                        } else {
+                            sb.append(input[i])
+                            i++
+                        }
+                    }
+                    else -> {
+                        sb.append(input[i])
+                        i++
+                    }
+                }
+            } else {
+                sb.append(input[i])
+                i++
+            }
+        }
+        return sb.toString()
+    }
+
+    /**
+     * Sanitize a string to be safe for use as a filename
+     * Removes or replaces characters that are invalid in filenames
+     */
+    private fun sanitizeFileName(name: String): String {
+        return name
+            // Replace common problematic characters
+            .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            // Replace multiple underscores with single
+            .replace(Regex("_+"), "_")
+            // Remove leading/trailing underscores and spaces
+            .trim('_', ' ')
+            // Limit length to prevent filesystem issues
+            .take(200)
+            .ifBlank { "download" }
     }
 
     /**
@@ -1085,6 +1262,25 @@ data class VideoInfo(
     val duration: Long,
     val thumbnail: String?,
     val uploader: String?
+)
+
+/**
+ * Playlist/Carousel information containing multiple videos
+ */
+data class PlaylistInfo(
+    val title: String,
+    val videoCount: Int,
+    val videos: List<PlaylistVideoInfo>
+)
+
+/**
+ * Individual video within a playlist
+ */
+data class PlaylistVideoInfo(
+    val title: String,
+    val url: String,
+    val thumbnail: String?,
+    val duration: Long
 )
 
 /**

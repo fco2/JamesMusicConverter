@@ -36,6 +36,7 @@ import coil.request.ImageRequest
 import com.chuka.jamesmusicconverter.domain.FileActionHandler
 import com.chuka.jamesmusicconverter.domain.model.DownloadHistory
 import com.chuka.jamesmusicconverter.navigation.DownloadMode
+import com.chuka.jamesmusicconverter.ui.components.CarouselIndicatorBadge
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -182,45 +183,14 @@ fun DownloadHistoryScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Stats Card
-            if (uiState.totalCount > 0) {
-                StatsCard(
+            // Minimal stats and filter row
+            if (uiState.totalCount > 0 || uiState.downloads.isNotEmpty()) {
+                StatsAndFilterRow(
                     totalCount = uiState.totalCount,
                     totalSize = uiState.totalSize,
-                    modifier = Modifier.padding(16.dp)
+                    filterMode = uiState.filterMode,
+                    onFilterChange = { viewModel.filterByMode(it) }
                 )
-            }
-
-            // Filter chips
-            if (uiState.filterMode != null) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = true,
-                        onClick = { viewModel.filterByMode(null) },
-                        label = {
-                            Text(
-                                when (uiState.filterMode) {
-                                    DownloadMode.AUDIO -> "Audio Only"
-                                    DownloadMode.VIDEO -> "Video Only"
-                                    else -> "All"
-                                }
-                            )
-                        },
-                        trailingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Remove filter",
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
             }
 
             // Download list
@@ -339,124 +309,75 @@ fun DownloadHistoryScreen(
     }
 }
 
+/**
+ * Minimal stats and filter row
+ */
 @Composable
-private fun StatsCard(
+private fun StatsAndFilterRow(
     totalCount: Int,
     totalSize: Long,
+    filterMode: DownloadMode?,
+    onFilterChange: (DownloadMode?) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Animated counter
-    val animatedCount by animateIntAsState(
-        targetValue = totalCount,
-        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
-        label = "count"
-    )
-
-    Card(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = 4.dp,
-                shape = RoundedCornerShape(16.dp),
-                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
-            ),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        shape = RoundedCornerShape(16.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            MaterialTheme.colorScheme.secondaryContainer
-                        )
-                    )
-                )
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                // Downloads stat
-                StatItem(
-                    icon = Icons.Default.Download,
-                    value = "$animatedCount",
-                    label = "Downloads",
-                    iconBackgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                    iconTint = MaterialTheme.colorScheme.primary
-                )
-
-                // Divider
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(60.dp)
-                        .background(
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
-                        )
-                )
-
-                // Storage stat
-                StatItem(
-                    icon = Icons.Default.Storage,
-                    value = formatFileSize(totalSize),
-                    label = "Total Size",
-                    iconBackgroundColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
-                    iconTint = MaterialTheme.colorScheme.secondary
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun StatItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    value: String,
-    label: String,
-    iconBackgroundColor: Color,
-    iconTint: Color,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-    ) {
-        // Icon with circular background
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(iconBackgroundColor),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(28.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
+        // Stats text
         Text(
-            text = value,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
+            text = "$totalCount downloads",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface
         )
-
         Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
+            text = "•",
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = formatFileSize(totalSize),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Filter chips
+        FilterChip(
+            selected = filterMode == null,
+            onClick = { onFilterChange(null) },
+            label = { Text("All") },
+            modifier = Modifier.height(32.dp)
+        )
+
+        FilterChip(
+            selected = filterMode == DownloadMode.AUDIO,
+            onClick = { onFilterChange(DownloadMode.AUDIO) },
+            label = {
+                Icon(
+                    imageVector = Icons.Default.MusicNote,
+                    contentDescription = "Audio",
+                    modifier = Modifier.size(16.dp)
+                )
+            },
+            modifier = Modifier.height(32.dp)
+        )
+
+        FilterChip(
+            selected = filterMode == DownloadMode.VIDEO,
+            onClick = { onFilterChange(DownloadMode.VIDEO) },
+            label = {
+                Icon(
+                    imageVector = Icons.Default.VideoLibrary,
+                    contentDescription = "Video",
+                    modifier = Modifier.size(16.dp)
+                )
+            },
+            modifier = Modifier.height(32.dp)
         )
     }
 }
@@ -486,22 +407,30 @@ private fun DownloadHistoryItem(
                     dampingRatio = Spring.DampingRatioMediumBouncy,
                     stiffness = Spring.StiffnessLow
                 )
+            )
+            .shadow(
+                elevation = if (isSelected) 8.dp else 4.dp,
+                shape = RoundedCornerShape(12.dp),
+                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
             ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isSelected) 8.dp else 3.dp,
-            pressedElevation = 1.dp
+            defaultElevation = 0.dp,  // Shadow handled by modifier
+            pressedElevation = 0.dp
         ),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected)
                 MaterialTheme.colorScheme.secondaryContainer
             else
-                MaterialTheme.colorScheme.surface
+                MaterialTheme.colorScheme.surfaceContainerLow
         ),
-        border = if (isSelected)
-            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-        else
-            null
+        border = BorderStroke(
+            width = if (isSelected) 2.dp else 1.dp,
+            color = if (isSelected)
+                MaterialTheme.colorScheme.primary
+            else
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        )
     ) {
         Column(
             modifier = Modifier.fillMaxWidth()
@@ -535,7 +464,7 @@ private fun DownloadHistoryItem(
                 }
                 // Thumbnail with overlay
                 Box(
-                    modifier = Modifier.size(100.dp, 75.dp)
+                    modifier = Modifier.size(88.dp, 66.dp)
                 ) {
                     val thumbnailToDisplay = download.getThumbnailToDisplay()
                     if (thumbnailToDisplay != null) {
@@ -547,7 +476,7 @@ private fun DownloadHistoryItem(
                             contentDescription = "Thumbnail",
                             modifier = Modifier
                                 .fillMaxSize()
-                                .clip(RoundedCornerShape(12.dp)),
+                                .clip(RoundedCornerShape(8.dp)),
                             contentScale = ContentScale.Crop
                         )
 
@@ -592,12 +521,24 @@ private fun DownloadHistoryItem(
                                 tint = Color.White
                             )
                         }
+
+                        // Carousel badge (top-right)
+                        val carouselText = download.getCarouselPositionText()
+                        if (carouselText != null) {
+                            CarouselIndicatorBadge(
+                                position = download.carouselPosition,
+                                total = download.carouselTotal,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(4.dp)
+                            )
+                        }
                     } else {
                         // Fallback icon with gradient
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(8.dp))
                                 .background(
                                     brush = Brush.linearGradient(
                                         colors = listOf(
@@ -682,48 +623,54 @@ private fun DownloadHistoryItem(
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
-                    // Metadata row
+                    // Metadata row: file size • duration • time ago
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // File size with icon
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Storage,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = download.getFormattedFileSize(),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        // File size
+                        Text(
+                            text = download.getFormattedFileSize(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
 
-                        // Time ago with icon
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Schedule,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        // Duration (if available)
+                        if (download.duration > 0) {
+                            Text(
+                                text = "•",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = download.getTimeAgo(),
+                                text = download.getFormattedDuration(),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+
+                        Text(
+                            text = "•",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        // Time ago
+                        Text(
+                            text = download.getTimeAgo(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
+
+                    // File name
+                    Text(
+                        text = download.fileName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
                     // Expand indicator
                     Row(

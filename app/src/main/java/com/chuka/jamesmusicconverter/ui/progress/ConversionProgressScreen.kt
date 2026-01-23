@@ -55,6 +55,7 @@ import com.chuka.jamesmusicconverter.ui.components.SnackbarViewModel
 @Composable
 fun ConversionProgressScreen(
     videoUrl: String,
+    modifier: Modifier = Modifier,
     username: String? = null,
     password: String? = null,
     cookiesFromBrowser: String? = null,
@@ -62,7 +63,6 @@ fun ConversionProgressScreen(
     onNavigateToCompleted: (String, String?, String, Long, String, Long, Boolean, String, Int) -> Unit,  // Added videoUrl and videoCount
     onNavigateToError: (String) -> Unit,
     onNavigateBack: () -> Unit,
-    modifier: Modifier = Modifier,
     viewModel: ConversionProgressViewModel = hiltViewModel(),
     snackbarController: SnackbarController = hiltViewModel<SnackbarViewModel>().snackbarController
 ) {

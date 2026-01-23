@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Queue
 import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
@@ -51,12 +52,14 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.chuka.jamesmusicconverter.navigation.DownloadMode
+import com.chuka.jamesmusicconverter.ui.components.CarouselCountBadge
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UrlInputScreen(
     onNavigateToProgress: (String, String?, String?, String?, DownloadMode) -> Unit,
     onNavigateToHistory: () -> Unit,
+    onNavigateToQueue: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: UrlInputViewModel = hiltViewModel()
 ) {
@@ -169,6 +172,30 @@ fun UrlInputScreen(
                     )
                 },
                 actions = {
+                    // Queue button with badge
+                    BadgedBox(
+                        badge = {
+                            if (uiState.activeQueueCount > 0) {
+                                Badge(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                ) {
+                                    Text(
+                                        text = uiState.activeQueueCount.toString(),
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                            }
+                        }
+                    ) {
+                        IconButton(onClick = onNavigateToQueue) {
+                            Icon(
+                                imageVector = Icons.Default.Queue,
+                                contentDescription = "Download Queue",
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
+
                     // History button
                     IconButton(onClick = onNavigateToHistory) {
                         Icon(
@@ -196,11 +223,11 @@ fun UrlInputScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // App Icon
+            // App Icon (simplified - 56dp)
             Surface(
                 shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(80.dp)
+                modifier = Modifier.size(56.dp)
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
@@ -209,34 +236,21 @@ fun UrlInputScreen(
                     Icon(
                         imageVector = Icons.Default.MusicNote,
                         contentDescription = null,
-                        modifier = Modifier.size(48.dp),
+                        modifier = Modifier.size(32.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Title
+            // Title (simplified)
             Text(
                 text = when (uiState.downloadMode) {
-                    DownloadMode.AUDIO -> "Convert Videos to MP3"
-                    DownloadMode.VIDEO -> "Download Videos"
+                    DownloadMode.AUDIO -> "Download Audio"
+                    DownloadMode.VIDEO -> "Download Video"
                 },
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
-                textAlign = TextAlign.Center
-            )
-
-            // Description
-            Text(
-                text = when (uiState.downloadMode) {
-                    DownloadMode.AUDIO -> "Enter a video URL to convert it to MP3 format"
-                    DownloadMode.VIDEO -> "Enter a video URL to download as MP4"
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
 
@@ -388,7 +402,9 @@ fun UrlInputScreen(
             uiState.videoPreview?.let { preview ->
                 VideoPreviewCard(
                     preview = preview,
-                    downloadMode = uiState.downloadMode
+                    downloadMode = uiState.downloadMode,
+                    isPlaylist = uiState.isPlaylist,
+                    videoCount = uiState.playlistVideoCount
                 )
             }
 
@@ -507,12 +523,20 @@ fun UrlInputScreen(
                 }
             }
 
-            // Convert/Download Button
+            // Smart Download Button
+            // Single video -> progress screen, Playlist -> auto-queue and navigate to queue
             Button(
                 onClick = {
                     keyboardController?.hide()
                     viewModel.validateAndGetAuthData()?.let { (url, authData, _) ->
-                        checkAndRequestPermissions(url, authData, uiState.downloadMode)
+                        // Check if this is a playlist
+                        if (viewModel.performSmartDownload()) {
+                            // Single video - proceed with direct download
+                            checkAndRequestPermissions(url, authData, uiState.downloadMode)
+                        } else {
+                            // Playlist - auto-queued, navigate to queue
+                            onNavigateToQueue()
+                        }
                     }
                 },
                 modifier = Modifier
@@ -520,15 +544,11 @@ fun UrlInputScreen(
                     .height(52.dp),
                 enabled = uiState.urlTextFieldValue.text.isNotBlank()
             ) {
-                val platform = uiState.videoPreview?.platform
                 val buttonText = when {
-                    platform != null && uiState.downloadMode == DownloadMode.VIDEO ->
-                        "Download ${platform.getDisplayName()} Video"
-
-                    platform != null && uiState.downloadMode == DownloadMode.AUDIO ->
-                        "Convert ${platform.getDisplayName()} to MP3"
-
-                    uiState.downloadMode == DownloadMode.AUDIO -> "Convert to MP3"
+                    uiState.isPlaylist && uiState.playlistVideoCount > 1 -> {
+                        "Download ${uiState.playlistVideoCount} Items"
+                    }
+                    uiState.downloadMode == DownloadMode.AUDIO -> "Download Audio"
                     else -> "Download Video"
                 }
 
@@ -539,43 +559,20 @@ fun UrlInputScreen(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-
-            // Info Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "Supported Platforms:",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Text(
-                        text = "• YouTube, Dailymotion\n• Instagram, TikTok\n• Twitter/X, Facebook\n• And 1000+ more platforms...",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
 
 /**
  * Composable to show video preview with thumbnail and metadata
+ * Supports showing playlist/carousel with stacked thumbnail effect
  */
 @Composable
 private fun VideoPreviewCard(
     preview: VideoPreview,
     downloadMode: DownloadMode,
+    isPlaylist: Boolean = false,
+    videoCount: Int = 0,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -591,36 +588,75 @@ private fun VideoPreviewCard(
                 .padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Thumbnail
-            if (preview.thumbnail != null) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(preview.thumbnail)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = "Video thumbnail",
-                    modifier = Modifier
-                        .size(120.dp, 90.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                // Fallback icon if no thumbnail
-                Box(
-                    modifier = Modifier
-                        .size(120.dp, 90.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .padding(8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (downloadMode == DownloadMode.VIDEO)
-                            Icons.Default.VideoLibrary
-                        else
-                            Icons.Default.MusicNote,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            // Thumbnail (with stacked effect for playlists)
+            Box(
+                modifier = Modifier.size(120.dp, 90.dp)
+            ) {
+                if (isPlaylist && videoCount > 1) {
+                    // Stacked thumbnail effect for playlists
+                    // Background cards to create stack effect
+                    Card(
+                        modifier = Modifier
+                            .size(120.dp, 90.dp)
+                            .offset(x = (-8).dp, y = (-8).dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {}
+                    
+                    Card(
+                        modifier = Modifier
+                            .size(120.dp, 90.dp)
+                            .offset(x = (-4).dp, y = (-4).dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                        )
+                    ) {}
+                }
+                
+                // Main thumbnail
+                if (preview.thumbnail != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(preview.thumbnail)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Video thumbnail",
+                        modifier = Modifier
+                            .size(120.dp, 90.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    // Fallback icon if no thumbnail
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp, 90.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .padding(8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (downloadMode == DownloadMode.VIDEO)
+                                Icons.Default.VideoLibrary
+                            else
+                                Icons.Default.MusicNote,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+                
+                // Carousel count badge for playlists
+                if (isPlaylist && videoCount > 1) {
+                    CarouselCountBadge(
+                        count = videoCount,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .offset(x = (-4).dp, y = (-4).dp)
                     )
                 }
             }
@@ -630,18 +666,38 @@ private fun VideoPreviewCard(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Platform badge
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(4.dp)
+                // Platform badge and playlist indicator
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = preview.platform.getDisplayName(),
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = preview.platform.getDisplayName(),
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    
+                    if (isPlaylist && videoCount > 1) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "Playlist",
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
 
                 // Title

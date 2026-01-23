@@ -31,7 +31,11 @@ class DownloadHistoryRepository @Inject constructor(
         platform: String,
         downloadMode: DownloadMode,
         duration: Long,
-        uploader: String?
+        uploader: String?,
+        isPartOfCarousel: Boolean = false,
+        carouselGroupId: String? = null,
+        carouselPosition: Int? = null,
+        carouselTotal: Int? = null
     ): Long {
         val entity = DownloadHistoryEntity(
             title = title,
@@ -46,7 +50,11 @@ class DownloadHistoryRepository @Inject constructor(
             duration = duration,
             uploader = uploader,
             downloadedAt = System.currentTimeMillis(),
-            fileExists = true
+            fileExists = true,
+            isPartOfCarousel = isPartOfCarousel,
+            carouselGroupId = carouselGroupId,
+            carouselPosition = carouselPosition,
+            carouselTotal = carouselTotal
         )
         return downloadHistoryDao.insertDownload(entity)
     }
@@ -149,7 +157,11 @@ class DownloadHistoryRepository @Inject constructor(
             duration = duration,
             uploader = uploader,
             downloadedAt = downloadedAt,
-            fileExists = fileExists
+            fileExists = fileExists,
+            isPartOfCarousel = isPartOfCarousel,
+            carouselGroupId = carouselGroupId,
+            carouselPosition = carouselPosition,
+            carouselTotal = carouselTotal
         )
     }
 }

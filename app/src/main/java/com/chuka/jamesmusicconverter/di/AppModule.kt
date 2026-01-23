@@ -2,8 +2,10 @@ package com.chuka.jamesmusicconverter.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.work.WorkManager
 import com.chuka.jamesmusicconverter.data.local.AppDatabase
 import com.chuka.jamesmusicconverter.data.local.DownloadHistoryDao
+import com.chuka.jamesmusicconverter.data.local.DownloadQueueDao
 import com.chuka.jamesmusicconverter.data.service.AudioExtractor
 import com.chuka.jamesmusicconverter.data.service.DownloadNotificationService
 import com.chuka.jamesmusicconverter.data.service.VideoDownloader
@@ -12,6 +14,8 @@ import com.chuka.jamesmusicconverter.data.util.ThumbnailManager
 import com.chuka.jamesmusicconverter.domain.repository.ConversionRepository
 import com.chuka.jamesmusicconverter.domain.repository.ConversionRepositoryImpl
 import com.chuka.jamesmusicconverter.domain.repository.DownloadHistoryRepository
+import com.chuka.jamesmusicconverter.domain.repository.DownloadQueueRepository
+import com.chuka.jamesmusicconverter.worker.DownloadWorkManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -84,7 +88,9 @@ object AppModule {
             context,
             AppDatabase::class.java,
             "james_music_converter_db"
-        ).build()
+        )
+            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4)
+            .build()
     }
 
     @Provides
@@ -97,6 +103,14 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideDownloadQueueDao(
+        database: AppDatabase
+    ): DownloadQueueDao {
+        return database.downloadQueueDao()
+    }
+
+    @Provides
+    @Singleton
     fun provideDownloadHistoryRepository(
         dao: DownloadHistoryDao
     ): DownloadHistoryRepository {
@@ -105,9 +119,33 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideDownloadQueueRepository(
+        dao: DownloadQueueDao
+    ): DownloadQueueRepository {
+        return DownloadQueueRepository(dao)
+    }
+
+    @Provides
+    @Singleton
     fun provideThumbnailManager(
         @ApplicationContext context: Context
     ): ThumbnailManager {
         return ThumbnailManager(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideWorkManager(
+        @ApplicationContext context: Context
+    ): WorkManager {
+        return WorkManager.getInstance(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideDownloadWorkManager(
+        workManager: WorkManager
+    ): DownloadWorkManager {
+        return DownloadWorkManager(workManager)
     }
 }

@@ -23,5 +23,10 @@ data class DownloadHistoryEntity(
     val duration: Long,  // Duration in seconds
     val uploader: String?,
     val downloadedAt: Long,  // Timestamp
-    val fileExists: Boolean = true  // Track if file still exists
+    val fileExists: Boolean = true,  // Track if file still exists
+    // Carousel/Playlist tracking fields
+    val isPartOfCarousel: Boolean = false,
+    val carouselGroupId: String? = null,
+    val carouselPosition: Int? = null,
+    val carouselTotal: Int? = null
 )
