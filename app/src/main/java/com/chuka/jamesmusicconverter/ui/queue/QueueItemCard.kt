@@ -1,7 +1,10 @@
 package com.chuka.jamesmusicconverter.ui.queue
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -22,11 +25,12 @@ import com.chuka.jamesmusicconverter.domain.model.QueueItem
 import com.chuka.jamesmusicconverter.domain.model.QueueItemStatus
 import com.chuka.jamesmusicconverter.navigation.DownloadMode
 import com.chuka.jamesmusicconverter.ui.components.CarouselIndicatorBadge
+import com.chuka.jamesmusicconverter.ui.theme.StatusSuccess
+import com.chuka.jamesmusicconverter.ui.theme.StatusSuccessDark
+import com.chuka.jamesmusicconverter.ui.theme.StatusWarning
+import com.chuka.jamesmusicconverter.ui.theme.StatusWarningDark
 import java.io.File
 
-/**
- * Card component displaying a single queue item with its status and actions
- */
 @Composable
 fun QueueItemCard(
     item: QueueItem,
@@ -38,7 +42,9 @@ fun QueueItemCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(10.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
@@ -46,181 +52,148 @@ fun QueueItemCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Thumbnail with status overlay and carousel badge
+            // Thumbnail with status overlay
             ThumbnailWithStatus(
                 thumbnailUrl = item.thumbnailUrl,
                 localThumbnailPath = item.localThumbnailPath,
                 status = item.status,
-                progress = item.progress,
-                downloadMode = item.downloadMode,
-                carouselPositionText = item.carouselPositionText
+                downloadMode = item.downloadMode
             )
 
-            // Content
+            // Middle content
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                // Platform badge
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Text(
-                        text = item.platform,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
                 // Title
                 Text(
                     text = item.displayTitle,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
-                // Duration and mode info (show for all items when available)
-                if (item.durationMillis > 0) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Duration
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Schedule,
-                                contentDescription = null,
-                                modifier = Modifier.size(12.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = formatDuration(item.durationMillis),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        // Mode indicator
+                // Meta line: platform · duration · mode · carousel
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = item.platform,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (item.durationMillis > 0) {
+                        Text("·", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
-                            text = "•",
-                            style = MaterialTheme.typography.labelSmall,
+                            text = formatDuration(item.durationMillis),
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                    Text("·", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = if (item.downloadMode == DownloadMode.VIDEO) "Video" else "Audio",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    val carouselText = item.carouselPositionText
+                    if (carouselText != null) {
+                        Text("·", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        CarouselIndicatorBadge(
+                            position = carouselText.substringBefore("/").toIntOrNull(),
+                            total = carouselText.substringAfter("/").toIntOrNull()
+                        )
+                    }
+                }
+
+                // Status line + progress/file size
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = item.statusMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = getStatusColor(item.status),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+
+                    if ((item.status == QueueItemStatus.ACTIVE || item.status == QueueItemStatus.PENDING) && item.progress > 0) {
                         Text(
-                            text = if (item.downloadMode == DownloadMode.VIDEO) "Video" else "Audio",
-                            style = MaterialTheme.typography.labelSmall,
+                            text = "${item.progressPercentage}%",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    if (item.status == QueueItemStatus.COMPLETED && item.filePath != null) {
+                        Text(
+                            text = formatFileSize(item.fileSize),
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                // Status message
-                Text(
-                    text = item.statusMessage,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = getStatusColor(item.status),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                // Progress bar for active/pending items
+                // Progress bar for active items
                 if (item.status == QueueItemStatus.ACTIVE || item.status == QueueItemStatus.PENDING) {
                     LinearProgressIndicator(
                         progress = { item.progress },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp)),
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(1.5.dp)),
                         color = MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
-
-                    if (item.progress > 0) {
-                        Text(
-                            text = "${item.progressPercentage}%",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                 }
 
-                // File info for completed items (file size and name)
-                if (item.status == QueueItemStatus.COMPLETED && item.filePath != null) {
-                    // File size
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = if (item.downloadMode == DownloadMode.VIDEO)
-                                Icons.Default.VideoFile
-                            else
-                                Icons.Default.AudioFile,
-                            contentDescription = null,
-                            modifier = Modifier.size(12.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = formatFileSize(item.fileSize),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                // Error message for failed items
+                // Error message
                 if (item.status == QueueItemStatus.FAILED && item.errorMessage != null) {
                     Text(
                         text = item.errorMessage,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-
-                // Action buttons
-                QueueItemActions(
-                    item = item,
-                    onCancel = onCancel,
-                    onRetry = onRetry,
-                    onRemove = onRemove,
-                    onPlay = onPlay
-                )
             }
+
+            // Action icons
+            ActionIcons(
+                item = item,
+                onCancel = onCancel,
+                onRetry = onRetry,
+                onRemove = onRemove,
+                onPlay = onPlay
+            )
         }
     }
 }
 
-/**
- * Thumbnail with status overlay and optional carousel badge
- */
 @Composable
 private fun ThumbnailWithStatus(
     thumbnailUrl: String?,
     localThumbnailPath: String?,
     status: QueueItemStatus,
-    progress: Float,
-    downloadMode: DownloadMode,
-    carouselPositionText: String? = null
+    downloadMode: DownloadMode
 ) {
     Box(
-        modifier = Modifier.size(60.dp),  // Reduced from 80dp
+        modifier = Modifier.size(56.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Thumbnail image
         val imageModel = when {
             localThumbnailPath != null && File(localThumbnailPath).exists() -> localThumbnailPath
             thumbnailUrl != null -> thumbnailUrl
@@ -240,7 +213,6 @@ private fun ThumbnailWithStatus(
                 contentScale = ContentScale.Crop
             )
         } else {
-            // Placeholder
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -254,199 +226,147 @@ private fun ThumbnailWithStatus(
                     else
                         Icons.Default.MusicNote,
                     contentDescription = null,
-                    modifier = Modifier.size(24.dp),  // Reduced from 32dp
+                    modifier = Modifier.size(24.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                 )
             }
         }
 
-        // Status overlay
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(8.dp))
-                .background(
-                    when (status) {
-                        QueueItemStatus.ACTIVE -> Color.Black.copy(alpha = 0.5f)
-                        QueueItemStatus.COMPLETED -> Color(0xFF4CAF50).copy(alpha = 0.7f)
-                        QueueItemStatus.FAILED -> Color(0xFFE53935).copy(alpha = 0.7f)
-                        QueueItemStatus.CANCELLED -> Color(0xFFFF9800).copy(alpha = 0.7f)
-                        QueueItemStatus.PENDING -> Color.Black.copy(alpha = 0.3f)
-                    }
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            when (status) {
-                QueueItemStatus.ACTIVE -> {
-                    CircularProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier.size(28.dp),  // Reduced from 36dp
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                }
-                QueueItemStatus.COMPLETED -> {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Completed",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)  // Reduced from 32dp
-                    )
-                }
-                QueueItemStatus.FAILED -> {
-                    Icon(
-                        imageVector = Icons.Default.Error,
-                        contentDescription = "Failed",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)  // Reduced from 32dp
-                    )
-                }
-                QueueItemStatus.CANCELLED -> {
-                    Icon(
-                        imageVector = Icons.Default.Cancel,
-                        contentDescription = "Cancelled",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)  // Reduced from 32dp
-                    )
-                }
-                QueueItemStatus.PENDING -> {
-                    Icon(
-                        imageVector = Icons.Default.Schedule,
-                        contentDescription = "Pending",
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp)  // Reduced from 28dp
-                    )
-                }
-            }
+        // Grey out thumbnail when actively downloading
+        if (status == QueueItemStatus.ACTIVE || status == QueueItemStatus.PENDING) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black.copy(alpha = 0.35f))
+            )
         }
 
-        // Carousel position badge (top-right corner)
-        if (carouselPositionText != null) {
-            CarouselIndicatorBadge(
-                position = carouselPositionText.substringBefore("/").toIntOrNull(),
-                total = carouselPositionText.substringAfter("/").toIntOrNull(),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = 4.dp, y = (-4).dp)
-            )
+        // Small status badges (non-active states only)
+        when (status) {
+            QueueItemStatus.ACTIVE, QueueItemStatus.PENDING -> {
+                // No badge — thumbnail is greyed out instead
+            }
+            QueueItemStatus.COMPLETED -> {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 2.dp, y = 2.dp)
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(if (isSystemInDarkTheme()) StatusSuccessDark else StatusSuccess),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Check, "Completed", tint = Color.White, modifier = Modifier.size(12.dp))
+                }
+            }
+            QueueItemStatus.FAILED -> {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 2.dp, y = 2.dp)
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.error),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Close, "Failed", tint = Color.White, modifier = Modifier.size(12.dp))
+                }
+            }
+            QueueItemStatus.CANCELLED -> {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 2.dp, y = 2.dp)
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(if (isSystemInDarkTheme()) StatusWarningDark else StatusWarning),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Close, "Cancelled", tint = Color.White, modifier = Modifier.size(12.dp))
+                }
+            }
         }
     }
 }
 
-/**
- * Action buttons based on item status
- */
 @Composable
-private fun QueueItemActions(
+private fun ActionIcons(
     item: QueueItem,
     onCancel: () -> Unit,
     onRetry: () -> Unit,
     onRemove: () -> Unit,
     onPlay: () -> Unit
 ) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(top = 4.dp)
+    Column(
+        verticalArrangement = Arrangement.spacedBy((-4).dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         when (item.status) {
             QueueItemStatus.PENDING, QueueItemStatus.ACTIVE -> {
-                // Cancel button
-                TextButton(
-                    onClick = onCancel,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                ) {
+                IconButton(onClick = onCancel, modifier = Modifier.size(36.dp)) {
                     Icon(
-                        imageVector = Icons.Default.Cancel,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+                        Icons.Default.Close,
+                        contentDescription = "Cancel",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Cancel", style = MaterialTheme.typography.labelMedium)
                 }
             }
-
             QueueItemStatus.COMPLETED -> {
-                // Play button
                 if (item.filePath != null) {
-                    TextButton(
-                        onClick = onPlay,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
+                    IconButton(onClick = onPlay, modifier = Modifier.size(36.dp)) {
                         Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
+                            Icons.Default.PlayArrow,
+                            contentDescription = "Play",
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Play", style = MaterialTheme.typography.labelMedium)
                     }
                 }
-
-                // Remove button
-                TextButton(
-                    onClick = onRemove,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                ) {
+                IconButton(onClick = onRemove, modifier = Modifier.size(36.dp)) {
                     Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+                        Icons.Default.Delete,
+                        contentDescription = "Remove",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Remove", style = MaterialTheme.typography.labelMedium)
                 }
             }
-
             QueueItemStatus.FAILED, QueueItemStatus.CANCELLED -> {
-                // Retry button
-                TextButton(
-                    onClick = onRetry,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                ) {
+                IconButton(onClick = onRetry, modifier = Modifier.size(36.dp)) {
                     Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+                        Icons.Default.Refresh,
+                        contentDescription = "Retry",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Retry", style = MaterialTheme.typography.labelMedium)
                 }
-
-                // Remove button
-                TextButton(
-                    onClick = onRemove,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                ) {
+                IconButton(onClick = onRemove, modifier = Modifier.size(36.dp)) {
                     Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+                        Icons.Default.Delete,
+                        contentDescription = "Remove",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Remove", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
     }
 }
 
-/**
- * Get color for status text
- */
 @Composable
 private fun getStatusColor(status: QueueItemStatus): Color {
+    val isDark = isSystemInDarkTheme()
     return when (status) {
         QueueItemStatus.PENDING -> MaterialTheme.colorScheme.onSurfaceVariant
         QueueItemStatus.ACTIVE -> MaterialTheme.colorScheme.primary
-        QueueItemStatus.COMPLETED -> Color(0xFF4CAF50)
+        QueueItemStatus.COMPLETED -> if (isDark) StatusSuccessDark else StatusSuccess
         QueueItemStatus.FAILED -> MaterialTheme.colorScheme.error
-        QueueItemStatus.CANCELLED -> Color(0xFFFF9800)
+        QueueItemStatus.CANCELLED -> if (isDark) StatusWarningDark else StatusWarning
     }
 }
 
-/**
- * Format file size to human-readable string
- */
 private fun formatFileSize(bytes: Long): String {
     return when {
         bytes < 1024 -> "$bytes B"
@@ -456,17 +376,12 @@ private fun formatFileSize(bytes: Long): String {
     }
 }
 
-/**
- * Format duration to human-readable string (mm:ss or HH:mm:ss)
- */
 private fun formatDuration(durationMillis: Long): String {
     if (durationMillis <= 0) return "Unknown"
-
     val totalSeconds = durationMillis / 1000
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
-
     return if (hours > 0) {
         String.format("%d:%02d:%02d", hours, minutes, seconds)
     } else {

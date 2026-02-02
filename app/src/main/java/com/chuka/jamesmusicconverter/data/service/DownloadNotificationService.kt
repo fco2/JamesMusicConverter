@@ -1,14 +1,17 @@
 package com.chuka.jamesmusicconverter.data.service
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.chuka.jamesmusicconverter.R
 import java.io.File
@@ -96,8 +99,12 @@ class DownloadNotificationService(private val context: Context) {
                 .setAutoCancel(true)
                 .build()
 
-            // Show notification
-            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
+            // Show notification (check permission for Android 13+)
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            ) {
+                NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }

@@ -567,23 +567,27 @@ class UrlInputViewModel @Inject constructor(
     }
 
     /**
-     * Smart download function that handles routing based on content type:
-     * - Single video: Returns true to proceed with direct download via progress screen
-     * - Playlist (2+ videos): Auto-queues all, returns false (caller should navigate to queue)
+     * Smart download function that always routes through the queue system.
+     * - Single video: Queues it and clears input so user can paste another URL
+     * - Playlist (2+ videos): Auto-queues all and clears input
      *
-     * @return true if single video (proceed to progress), false if playlist (queued, go to queue)
+     * @return true if successfully added to queue, false if validation failed
      */
     fun performSmartDownload(): Boolean {
         val currentState = _uiState.value
 
-        // For playlists with 2+ videos, auto-queue and return false
-        if (currentState.isPlaylist && currentState.playlistVideoCount > 1) {
+        val success = if (currentState.isPlaylist && currentState.playlistVideoCount > 1) {
             addAllToQueue()
-            return false  // Signal caller to navigate to queue
+        } else {
+            addToQueue()
         }
 
-        // Single video - return true to proceed with direct download
-        return true
+        if (success) {
+            // Clear input so user can immediately paste another URL
+            clearUrl()
+        }
+
+        return success
     }
 }
 

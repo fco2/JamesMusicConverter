@@ -1,9 +1,12 @@
 package com.chuka.jamesmusicconverter.ui.queue
 
 import android.content.Intent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -11,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -21,11 +25,10 @@ import com.chuka.jamesmusicconverter.domain.model.QueueItem
 import com.chuka.jamesmusicconverter.domain.model.QueueItemStatus
 import com.chuka.jamesmusicconverter.ui.components.SnackbarController
 import com.chuka.jamesmusicconverter.ui.components.SnackbarViewModel
+import com.chuka.jamesmusicconverter.ui.theme.StatusSuccess
+import com.chuka.jamesmusicconverter.ui.theme.StatusSuccessDark
 import java.io.File
 
-/**
- * Main screen for viewing and managing the download queue
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadQueueScreen(
@@ -40,7 +43,6 @@ fun DownloadQueueScreen(
     var showCancelAllDialog by remember { mutableStateOf(false) }
     var showClearDialog by remember { mutableStateOf(false) }
 
-    // Cancel all confirmation dialog
     if (showCancelAllDialog) {
         AlertDialog(
             onDismissRequest = { showCancelAllDialog = false },
@@ -52,19 +54,14 @@ fun DownloadQueueScreen(
                         viewModel.cancelAll()
                         showCancelAllDialog = false
                     }
-                ) {
-                    Text("Cancel All")
-                }
+                ) { Text("Cancel All") }
             },
             dismissButton = {
-                TextButton(onClick = { showCancelAllDialog = false }) {
-                    Text("Keep")
-                }
+                TextButton(onClick = { showCancelAllDialog = false }) { Text("Keep") }
             }
         )
     }
 
-    // Clear finished confirmation dialog
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
@@ -76,14 +73,10 @@ fun DownloadQueueScreen(
                         viewModel.clearFinished()
                         showClearDialog = false
                     }
-                ) {
-                    Text("Clear")
-                }
+                ) { Text("Clear") }
             },
             dismissButton = {
-                TextButton(onClick = { showClearDialog = false }) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { showClearDialog = false }) { Text("Cancel") }
             }
         )
     }
@@ -106,7 +99,6 @@ fun DownloadQueueScreen(
                     }
                 },
                 actions = {
-                    // Cancel all button (only show if there are active items)
                     if (uiState.activeCount + uiState.pendingCount > 0) {
                         IconButton(onClick = { showCancelAllDialog = true }) {
                             Icon(
@@ -115,8 +107,6 @@ fun DownloadQueueScreen(
                             )
                         }
                     }
-
-                    // Clear finished button (only show if there are finished items)
                     if (uiState.completedCount + uiState.failedCount > 0) {
                         IconButton(onClick = { showClearDialog = true }) {
                             Icon(
@@ -126,17 +116,25 @@ fun DownloadQueueScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                colors = if (isSystemInDarkTheme()) {
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                        actionIconContentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                } else {
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
             )
         }
     ) { paddingValues ->
         if (uiState.isLoading) {
-            // Loading state
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -146,32 +144,29 @@ fun DownloadQueueScreen(
                 CircularProgressIndicator()
             }
         } else if (uiState.queueItems.isEmpty()) {
-            // Empty state
             EmptyQueueState(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
             )
         } else {
-            // Queue items
             Column(
                 modifier = modifier
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                // Stats row (simplified)
-                QueueStatsRow(
+                // Compact chip-style stats bar
+                QueueStatsBar(
                     activeCount = uiState.activeCount,
                     pendingCount = uiState.pendingCount,
                     completedCount = uiState.completedCount,
                     failedCount = uiState.failedCount
                 )
 
-                // Queue items list
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(
                         items = uiState.queueItems,
@@ -186,9 +181,8 @@ fun DownloadQueueScreen(
                         )
                     }
 
-                    // Bottom spacing
                     item {
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
             }
@@ -197,90 +191,87 @@ fun DownloadQueueScreen(
 }
 
 /**
- * Minimal stats row showing queue summary
+ * Compact stats bar using small chips instead of large numbers
  */
 @Composable
-private fun QueueStatsRow(
+private fun QueueStatsBar(
     activeCount: Int,
     pendingCount: Int,
     completedCount: Int,
     failedCount: Int,
     modifier: Modifier = Modifier
 ) {
+    val totalActive = activeCount + pendingCount
+    val hasAny = totalActive > 0 || completedCount > 0 || failedCount > 0
+    if (!hasAny) return
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Active count
-        if (activeCount + pendingCount > 0) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${activeCount + pendingCount}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "active",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+        if (totalActive > 0) {
+            StatChip(
+                icon = Icons.Default.Download,
+                label = "$totalActive active",
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            )
         }
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Completed count
         if (completedCount > 0) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "$completedCount",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = androidx.compose.ui.graphics.Color(0xFF4CAF50)
-                )
-                Text(
-                    text = "done",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            val successColor = if (isSystemInDarkTheme()) StatusSuccessDark else StatusSuccess
+            StatChip(
+                icon = Icons.Default.CheckCircle,
+                label = "$completedCount done",
+                containerColor = successColor.copy(alpha = 0.15f),
+                contentColor = successColor
+            )
         }
 
-        // Failed count
         if (failedCount > 0) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "$failedCount",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.error
-                )
-                Text(
-                    text = "failed",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            StatChip(
+                icon = Icons.Default.Error,
+                label = "$failedCount failed",
+                containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                contentColor = MaterialTheme.colorScheme.error
+            )
         }
     }
 }
 
-/**
- * Empty state when no items in queue
- */
+@Composable
+private fun StatChip(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    containerColor: androidx.compose.ui.graphics.Color,
+    contentColor: androidx.compose.ui.graphics.Color
+) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(containerColor)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = contentColor
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = contentColor
+        )
+    }
+}
+
 @Composable
 private fun EmptyQueueState(
     modifier: Modifier = Modifier
@@ -293,11 +284,11 @@ private fun EmptyQueueState(
         Icon(
             imageVector = Icons.Default.Queue,
             contentDescription = null,
-            modifier = Modifier.size(80.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Text(
             text = "No downloads in queue",
@@ -305,20 +296,17 @@ private fun EmptyQueueState(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         Text(
             text = "Add videos from the home screen\nto start downloading",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
             textAlign = TextAlign.Center
         )
     }
 }
 
-/**
- * Play a downloaded file
- */
 private fun playFile(
     context: android.content.Context,
     item: QueueItem,

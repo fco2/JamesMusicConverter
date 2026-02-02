@@ -51,8 +51,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.chuka.jamesmusicconverter.navigation.DownloadMode
 import com.chuka.jamesmusicconverter.ui.components.CarouselCountBadge
+import com.chuka.jamesmusicconverter.ui.components.SnackbarViewModel
+import com.chuka.jamesmusicconverter.ui.theme.BadgeColor
+import com.chuka.jamesmusicconverter.ui.theme.BadgeDarkColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +75,7 @@ fun UrlInputScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val snackbarController = hiltViewModel<SnackbarViewModel>().snackbarController
 
     // Clear URL when screen is first shown (e.g., after completing a conversion)
     LaunchedEffect(Unit) {
@@ -177,7 +182,7 @@ fun UrlInputScreen(
                         badge = {
                             if (uiState.activeQueueCount > 0) {
                                 Badge(
-                                    containerColor = MaterialTheme.colorScheme.error
+                                    containerColor = if (isSystemInDarkTheme()) BadgeDarkColor else BadgeColor
                                 ) {
                                     Text(
                                         text = uiState.activeQueueCount.toString(),
@@ -188,27 +193,42 @@ fun UrlInputScreen(
                         }
                     ) {
                         IconButton(onClick = onNavigateToQueue) {
+                            val iconTint = if (isSystemInDarkTheme())
+                                MaterialTheme.colorScheme.onSurface
+                            else
+                                MaterialTheme.colorScheme.onPrimary
                             Icon(
                                 imageVector = Icons.Default.Queue,
                                 contentDescription = "Download Queue",
-                                tint = MaterialTheme.colorScheme.onPrimary
+                                tint = iconTint
                             )
                         }
                     }
 
                     // History button
                     IconButton(onClick = onNavigateToHistory) {
+                        val iconTint = if (isSystemInDarkTheme())
+                            MaterialTheme.colorScheme.onSurface
+                        else
+                            MaterialTheme.colorScheme.onPrimary
                         Icon(
                             imageVector = Icons.Default.History,
                             contentDescription = "Download History",
-                            tint = MaterialTheme.colorScheme.onPrimary
+                            tint = iconTint
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                colors = if (isSystemInDarkTheme()) {
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                } else {
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
             )
         }
     ) { paddingValues ->
@@ -345,13 +365,17 @@ fun UrlInputScreen(
                     IconButton(
                         onClick = {
                             scope.launch {
-                                clipboardManager.getClipEntry()?.clipData?.let { clipData ->
-                                    if (clipData.itemCount > 0) {
-                                        val pastedText = clipData.getItemAt(0)?.text?.toString()
-                                        if (pastedText != null) {
-                                            viewModel.pasteFromClipboard(pastedText)
-                                        }
+                                val clipEntry = clipboardManager.getClipEntry()
+                                val clipData = clipEntry?.clipData
+                                if (clipData != null && clipData.itemCount > 0) {
+                                    val pastedText = clipData.getItemAt(0)?.text?.toString()
+                                    if (pastedText != null) {
+                                        viewModel.pasteFromClipboard(pastedText)
+                                    } else {
+                                        snackbarController.showMessage("Nothing to paste")
                                     }
+                                } else {
+                                    snackbarController.showMessage("Nothing on clipboard to paste")
                                 }
                             }
                         }
@@ -523,19 +547,18 @@ fun UrlInputScreen(
                 }
             }
 
-            // Smart Download Button
-            // Single video -> progress screen, Playlist -> auto-queue and navigate to queue
+            // Download Button — always queues, stays on input screen
             Button(
                 onClick = {
                     keyboardController?.hide()
-                    viewModel.validateAndGetAuthData()?.let { (url, authData, _) ->
-                        // Check if this is a playlist
+                    viewModel.validateAndGetAuthData()?.let { (_, _, _) ->
                         if (viewModel.performSmartDownload()) {
-                            // Single video - proceed with direct download
-                            checkAndRequestPermissions(url, authData, uiState.downloadMode)
-                        } else {
-                            // Playlist - auto-queued, navigate to queue
-                            onNavigateToQueue()
+                            val message = if (uiState.isPlaylist && uiState.playlistVideoCount > 1) {
+                                "${uiState.playlistVideoCount} items added to queue"
+                            } else {
+                                "Download started"
+                            }
+                            snackbarController.showSuccess("$message — tap queue icon to view progress")
                         }
                     }
                 },

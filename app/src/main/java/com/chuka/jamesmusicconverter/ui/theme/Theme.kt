@@ -16,10 +16,10 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 // Muted slate blue light theme (easy on the eyes)
-private val AppColorScheme = lightColorScheme(
+private val LightColorScheme = lightColorScheme(
     primary = SlateBlue,
     onPrimary = White,
-    primaryContainer = SlateBlueLight.copy(alpha = 0.15f),
+    primaryContainer = SlateBluePale,
     onPrimaryContainer = SlateBlueDark,
 
     secondary = SlateBlueDark,
@@ -46,6 +46,37 @@ private val AppColorScheme = lightColorScheme(
     outlineVariant = androidx.compose.ui.graphics.Color(0xFFE0E0E0)
 )
 
+// Dark theme
+private val DarkColorScheme = darkColorScheme(
+    primary = SlateBlueLight,
+    onPrimary = White,
+    primaryContainer = SlateBlueDark,
+    onPrimaryContainer = SlateBluePale,
+
+    secondary = SlateBlueLight,
+    onSecondary = White,
+    secondaryContainer = DarkSurfaceVariant,
+    onSecondaryContainer = DarkTextPrimary,
+
+    tertiary = SlateBlueLight,
+    onTertiary = DarkTextPrimary,
+
+    background = DarkBackground,
+    onBackground = DarkTextPrimary,
+
+    surface = DarkSurface,
+    onSurface = DarkTextPrimary,
+
+    surfaceVariant = DarkSurfaceVariant,
+    onSurfaceVariant = DarkTextSecondary,
+
+    error = androidx.compose.ui.graphics.Color(0xFFEF5350),
+    onError = White,
+
+    outline = DarkOutline,
+    outlineVariant = DarkOutlineVariant
+)
+
 @Composable
 fun JamesMusicConverterTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -53,15 +84,20 @@ fun JamesMusicConverterTheme(
     dynamicColor: Boolean = false, // Disabled to force custom theme
     content: @Composable () -> Unit
 ) {
-    // Always use the app color scheme (white background)
-    val colorScheme = AppColorScheme
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = SlateBlue.toArgb()
-            window.navigationBarColor = SlateBlue.toArgb()
+
+            if (darkTheme) {
+                window.statusBarColor = DarkBackground.toArgb()
+                window.navigationBarColor = DarkBackground.toArgb()
+            } else {
+                window.statusBarColor = SlateBlue.toArgb()
+                window.navigationBarColor = SlateBlue.toArgb()
+            }
 
             // Set status bar icons to white (light = false means white icons)
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
